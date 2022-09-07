@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Archipelago.MultiClient.Net;
+using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Packets;
+using Archipelago.RiskOfRain2.Handlers;
 using Archipelago.RiskOfRain2.Net;
 using Archipelago.RiskOfRain2.UI;
 using R2API.Networking;
@@ -21,11 +24,14 @@ namespace Archipelago.RiskOfRain2
         public event ClientDisconnected OnClientDisconnect;
 
         public Uri LastServerUrl { get; set; }
+        internal DeathLinkHandler Deathlinkhandler { get; private set; }
 
         public ArchipelagoItemLogicController ItemLogic;
         public ArchipelagoLocationCheckProgressBarUI LocationCheckBar;
 
         private ArchipelagoSession session;
+        private bool enableDeathLink = false;
+        private DeathLinkService deathLinkService;
         private bool finalStageDeath = true;
 
         public ArchipelagoClient()
@@ -33,7 +39,12 @@ namespace Archipelago.RiskOfRain2
 
         }
 
-        public void Connect(Uri url, string slotName, string password = null)
+        public void Setup_SetDeathLink(bool enabled)
+        {
+            enableDeathLink = enabled;
+        }
+
+        public void Connect(Uri url, string slotName, string password = null, string[] tags = null)
         {
             ChatMessage.SendColored($"Attempting to connect to Archipelago at ${url}.", Color.green);
             Dispose();
@@ -44,7 +55,17 @@ namespace Archipelago.RiskOfRain2
             ItemLogic = new ArchipelagoItemLogicController(session);
             LocationCheckBar = new ArchipelagoLocationCheckProgressBarUI();
 
-            var result = session.TryConnectAndLogin("Risk of Rain 2", slotName, new Version(3,4,0), itemsHandlingFlags: ItemsHandlingFlags.AllItems);
+            List<string> taglist = tags is not null ? tags.ToList<string>() : new List<string>();
+
+            if (enableDeathLink)
+            {
+                Log.LogDebug("Tagging DeathLink");
+                taglist.Add("DeathLink");
+            }
+
+            tags = taglist.ToArray();
+
+            var result = session.TryConnectAndLogin("Risk of Rain 2", slotName, new Version(3,4,0), itemsHandlingFlags: ItemsHandlingFlags.AllItems, tags: tags);
 
             if (!result.Successful)
             {
@@ -55,6 +76,13 @@ namespace Archipelago.RiskOfRain2
                     Log.LogError(err);
                 }
                 return;
+            }
+
+            if (enableDeathLink)
+            {
+                Log.LogDebug("Starting DeathLink service");
+                deathLinkService = session.CreateDeathLinkServiceAndEnable();
+                Deathlinkhandler = new DeathLinkHandler(deathLinkService);
             }
 
             LoginSuccessful successResult = (LoginSuccessful)result;
@@ -101,6 +129,8 @@ namespace Archipelago.RiskOfRain2
             RoR2.Run.onRunDestroyGlobal += Run_onRunDestroyGlobal;
             On.RoR2.Run.BeginGameOver += Run_BeginGameOver;
             ArchipelagoChatMessage.OnChatReceivedFromClient += ArchipelagoChatMessage_OnChatReceivedFromClient;
+
+            Deathlinkhandler?.Hook();
         }
 
         private void UnhookGame()
@@ -109,6 +139,8 @@ namespace Archipelago.RiskOfRain2
             RoR2.Run.onRunDestroyGlobal -= Run_onRunDestroyGlobal;
             On.RoR2.Run.BeginGameOver -= Run_BeginGameOver;
             ArchipelagoChatMessage.OnChatReceivedFromClient -= ArchipelagoChatMessage_OnChatReceivedFromClient;
+
+            Deathlinkhandler?.Unhook();
         }
 
         private void ArchipelagoChatMessage_OnChatReceivedFromClient(string message)

@@ -94,8 +94,15 @@ Keep password blank if there is no password on the server.
 
 Simply check `Enable Archipelago?` and when you start the run it will automatically connect and print a message stating successful connection in your in-game chat.
 
+### Other InLobbyConfig Options
+
+* `Enable DeathLink?`: Enables DeathLink and tags Archipelago Connection with 'DeathLink'
+
 ## Changelog
 Internal versions are unreleased versions of the mod. They are pointed out in the changelog so that I can sort my work and to allow others to follow my progress between releases.
+
+**0.0.0**
+* Added DeathLink support (only works for singleplayer)
 
 **1.1.3**
 * Fixed connection issues.

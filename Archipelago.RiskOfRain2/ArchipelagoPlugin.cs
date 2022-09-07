@@ -36,6 +36,7 @@ namespace Archipelago.RiskOfRain2
         private bool isPlayingAP = false;
         private string apSlotName;
         private string apPassword;
+        private bool enableDeathlink = false;
 
         public void Awake()
         {
@@ -144,6 +145,10 @@ namespace Archipelago.RiskOfRain2
 
         private void Run_onRunStartGlobal(Run obj)
         {
+            AP.Setup_SetDeathLink(enableDeathlink);
+            // TODO it appears there is some needed overhead for handling multiplayer
+            // specifically to stop deathlink from being enabled when not not playing as host
+
             var isHost = NetworkServer.active && RoR2Application.isInMultiPlayer;
             if (willConnectToAP && (isHost || RoR2Application.isInSinglePlayer))
             {
@@ -181,6 +186,10 @@ namespace Archipelago.RiskOfRain2
                 new StringConfigField("Archipelago Server URL", () => apServerUri, (newValue) => apServerUri = newValue),
                 new IntConfigField("Archipelago Server Port", () => apServerPort, (newValue) => apServerPort = newValue),
                 new BooleanConfigField("Enable Archipelago?", () => willConnectToAP, (newValue) => willConnectToAP = newValue)
+            });
+            configEntry.SectionFields.Add("DeathLink Settings", new List<IConfigField>
+            {
+                new BooleanConfigField("Enable DeathLink?", () => enableDeathlink, (newValue) => enableDeathlink = newValue),
             });
             InLobbyConfig.ModConfigCatalog.Add(configEntry);
         }
