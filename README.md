@@ -201,6 +201,8 @@ Internal versions are unreleased versions of the mod. They are pointed out in th
 * Funny/joke item types: launching you into the air, switch left and right click
 * Trap item types: spawn a family of mobs on you, spawn bosses, drop bombs on the stage
 * Randomize order of check sending.
+* YAML option to move checks into a scavenger hunt (ie each stage is allocated location checks for specific tasks)
+* YAML option to make stages unlock from items in the multiworld
 * YAML options for types of item drops? Chests/Scrapper/Multishop/Boss/LunarCoin/GoldChests
 * Add objectives so that certain number of checks per level required per portal
 * Randomize pickup step every stage or every check?
