@@ -103,6 +103,7 @@ Internal versions are unreleased versions of the mod. They are pointed out in th
 
 **0.0.0**
 * Added DeathLink support (only works for singleplayer)
+* Change Default URI to archipelago.gg
 
 **1.1.3**
 * Fixed connection issues.
