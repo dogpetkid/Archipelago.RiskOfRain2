@@ -140,7 +140,7 @@ namespace Archipelago.RiskOfRain2
             On.RoR2.Run.BeginGameOver -= Run_BeginGameOver;
             ArchipelagoChatMessage.OnChatReceivedFromClient -= ArchipelagoChatMessage_OnChatReceivedFromClient;
 
-            Deathlinkhandler?.Unhook();
+            Deathlinkhandler?.UnHook();
         }
 
         private void ArchipelagoChatMessage_OnChatReceivedFromClient(string message)

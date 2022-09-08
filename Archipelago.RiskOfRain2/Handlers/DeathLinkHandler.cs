@@ -13,7 +13,7 @@ using UnityEngine.Networking;
 
 namespace Archipelago.RiskOfRain2.Handlers
 {
-    internal class DeathLinkHandler
+    internal class DeathLinkHandler : IHandler
     {
         private readonly DeathLinkService deathLink;
         // TODO perhaps a more robust system to prevent cyclical deaths is probably necessary
@@ -31,7 +31,7 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.CharacterMaster.OnBodyDeath += CharacterMaster_OnBodyDeath;
         }
 
-        public void Unhook()
+        public void UnHook()
         {
             deathLink.OnDeathLinkReceived -= DeathLink_OnDeathLinkReceived;
             //On.RoR2.CharacterMaster.OnBodyDeath -= CharacterMaster_OnBodyDeath;
