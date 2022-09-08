@@ -25,6 +25,7 @@ namespace Archipelago.RiskOfRain2
 
         public Uri LastServerUrl { get; set; }
         internal DeathLinkHandler Deathlinkhandler { get; private set; }
+        internal StageBlockerHandler Stageblockerhandler { get; private set; }
 
         public ArchipelagoItemLogicController ItemLogic;
         public ArchipelagoLocationCheckProgressBarUI LocationCheckBar;
@@ -85,6 +86,9 @@ namespace Archipelago.RiskOfRain2
                 Deathlinkhandler = new DeathLinkHandler(deathLinkService);
             }
 
+            // TODO make this an option
+            Stageblockerhandler = new StageBlockerHandler();
+
             LoginSuccessful successResult = (LoginSuccessful)result;
             if (successResult.SlotData.TryGetValue("FinalStageDeath", out var stageDeathObject))
             {
@@ -131,6 +135,7 @@ namespace Archipelago.RiskOfRain2
             ArchipelagoChatMessage.OnChatReceivedFromClient += ArchipelagoChatMessage_OnChatReceivedFromClient;
 
             Deathlinkhandler?.Hook();
+            Stageblockerhandler?.Hook();
         }
 
         private void UnhookGame()
@@ -141,6 +146,7 @@ namespace Archipelago.RiskOfRain2
             ArchipelagoChatMessage.OnChatReceivedFromClient -= ArchipelagoChatMessage_OnChatReceivedFromClient;
 
             Deathlinkhandler?.UnHook();
+            Stageblockerhandler?.UnHook();
         }
 
         private void ArchipelagoChatMessage_OnChatReceivedFromClient(string message)
