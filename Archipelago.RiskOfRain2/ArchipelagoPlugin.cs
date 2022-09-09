@@ -31,12 +31,12 @@ namespace Archipelago.RiskOfRain2
         private ArchipelagoClient AP;
         private bool isInLobbyConfigLoaded = false;
         private string apServerUri = "archipelago.gg";
-        private int apServerPort = 38281;
+        private int apServerPort = 63276;
         private bool willConnectToAP = true;
         private bool isPlayingAP = false;
-        private string apSlotName;
+        private string apSlotName = "Dogpetkid";
         private string apPassword;
-        private bool enableDeathlink = false;
+        private bool enableDeathlink = true;
 
         public void Awake()
         {
