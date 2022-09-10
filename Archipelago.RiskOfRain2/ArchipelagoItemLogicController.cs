@@ -6,6 +6,7 @@ using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Models;
 using Archipelago.MultiClient.Net.Packets;
 using Archipelago.RiskOfRain2.Extensions;
+using Archipelago.RiskOfRain2.Handlers;
 using Archipelago.RiskOfRain2.Net;
 using Archipelago.RiskOfRain2.UI;
 using R2API;
@@ -24,6 +25,8 @@ namespace Archipelago.RiskOfRain2
         public int ItemPickupStep { get; set; }
         public int CurrentChecks { get; set; }
         public int TotalChecks { get; set; }
+
+        internal StageBlockerHandler Stageblockerhandler { get; set; }
 
         public delegate void ItemDropProcessedHandler(int pickedUpCount);
         public event ItemDropProcessedHandler OnItemDropProcessed;
@@ -155,6 +158,17 @@ namespace Archipelago.RiskOfRain2
 
             int itemIdRecieved = itemReceived.Key;
             string itemNameReceived = itemReceived.Value;
+
+            Log.LogDebug($"Handling itemid {itemIdRecieved} with name {itemNameReceived}");
+
+            // check if the item is an environment based off of the itemId
+            if (37700 <= itemIdRecieved && itemIdRecieved < 38000)
+            {
+                Log.LogDebug("Handling as environment.");
+                Stageblockerhandler.UnBlock(itemIdRecieved - 37700);
+                return;
+            }
+            Log.LogDebug("Handling as drop item.");
 
             switch (itemNameReceived)
             {

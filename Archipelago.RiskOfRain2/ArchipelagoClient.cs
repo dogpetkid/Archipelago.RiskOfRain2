@@ -88,6 +88,7 @@ namespace Archipelago.RiskOfRain2
 
             // TODO make this an option
             Stageblockerhandler = new StageBlockerHandler();
+            ItemLogic.Stageblockerhandler = Stageblockerhandler;
 
             LoginSuccessful successResult = (LoginSuccessful)result;
             if (successResult.SlotData.TryGetValue("FinalStageDeath", out var stageDeathObject))
