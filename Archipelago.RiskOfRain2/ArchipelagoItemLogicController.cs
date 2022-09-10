@@ -30,7 +30,7 @@ namespace Archipelago.RiskOfRain2
 
         private bool finishedAllChecks = false;
         private ArchipelagoSession session;
-        private Queue<string> itemReceivedQueue = new Queue<string>();
+        private Queue<KeyValuePair<int, string>> itemReceivedQueue = new Queue<KeyValuePair<int, string>>();
         private PickupIndex[] skippedItems;
 
         private GameObject smokescreenPrefab;
@@ -120,8 +120,11 @@ namespace Archipelago.RiskOfRain2
 
         public void EnqueueItem(int itemId)
         {
-            var item = session.Items.GetItemName(itemId);
-            itemReceivedQueue.Enqueue(item);
+            // convert the itemId to a name here instead of in the main loop
+            // this prevents a call to the session in the RoR2Application_Update
+            var itemName = session.Items.GetItemName(itemId);
+            // keep track of the item id as well as since the name cannot be converted back to an id
+            itemReceivedQueue.Enqueue(new KeyValuePair<int, string>(itemId, itemName));
         }
 
         public void Dispose()
@@ -148,9 +151,12 @@ namespace Archipelago.RiskOfRain2
 
         private void HandleReceivedItemQueueItem()
         {
-            string itemReceived = itemReceivedQueue.Dequeue();
+            KeyValuePair<int, string> itemReceived = itemReceivedQueue.Dequeue();
 
-            switch (itemReceived)
+            int itemIdRecieved = itemReceived.Key;
+            string itemNameReceived = itemReceived.Value;
+
+            switch (itemNameReceived)
             {
                 case "Common Item":
                     var common = Run.instance.availableTier1DropList.Choice();
