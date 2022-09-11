@@ -66,12 +66,11 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.SeerStationController.SetTargetScene += SeerStationController_SetTargetScene;
             On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter += ReadyToEndGame_OnEnter;
             On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate += TransitionToNextStage_FixedUpdate;
-            ////On.RoR2.PortalDialerController.OpenArtifactPortalServer += PortalDialerController_OpenArtifactPortalServer; // XXX
-            //On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer += PortalDialerIdleState_OnActivationServer;
-            //On.RoR2.FrogController.Pet += FrogController_Pet;
+            On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer += PortalDialerIdleState_OnActivationServer;
+            On.RoR2.FrogController.Pet += FrogController_Pet;
             //On.RoR2.PortalSpawner.AttemptSpawnPortalServer += PortalSpawner_AttemptSpawnPortalServer;
             //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability += GenericInteraction_RoR2_IInteractable_GetInteractability;
-            //On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
+            On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
         }
 
         public void UnHook()
@@ -81,12 +80,11 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.SeerStationController.SetTargetScene -= SeerStationController_SetTargetScene;
             On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter -= ReadyToEndGame_OnEnter;
             On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate -= TransitionToNextStage_FixedUpdate;
-            ////On.RoR2.PortalDialerController.OpenArtifactPortalServer -= PortalDialerController_OpenArtifactPortalServer; // XXX
-            //On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer -= PortalDialerIdleState_OnActivationServer;
-            //On.RoR2.FrogController.Pet -= FrogController_Pet;
+            On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer -= PortalDialerIdleState_OnActivationServer;
+            On.RoR2.FrogController.Pet -= FrogController_Pet;
             //On.RoR2.PortalSpawner.AttemptSpawnPortalServer -= PortalSpawner_AttemptSpawnPortalServer;
             //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability -= GenericInteraction_RoR2_IInteractable_GetInteractability;
-            //On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
+            On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
         }
 
         public void BlockAll()
@@ -255,7 +253,6 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Swap the teleporter to use the next stage instead of go to Commencement if the environment is not unlocked.
          */
-        // TODO
         private void SceneExitController_SetState(On.RoR2.SceneExitController.orig_SetState orig, SceneExitController self, SceneExitController.ExitState newState)
         {
             // TODO maybe make the teleporter completely unable to align with the moon for user friendliness
@@ -274,6 +271,7 @@ namespace Archipelago.RiskOfRain2.Handlers
                 CheckBlocked(moon2)
                 )
             {
+                Log.LogDebug("Blocking portal alignment for moon2.");
                 // then actually go to the next stage
                 self.useRunNextStageScene = true;
             }
@@ -352,6 +350,7 @@ namespace Archipelago.RiskOfRain2.Handlers
                 // refund the lunar coin if the player who payed the coin is this client's player
                 if (interactor.GetComponent<CharacterBody>() == PlayerCharacterMasterController.instances[0].master.GetBody())
                 {
+                    // XXX give lunar coins back
                     PlayerCharacterMasterController.instances[0].master.GiveVoidCoins(1);
                     ChatMessage.SendColored("The frog does not want to be pet.", Color.white);
                     return;
@@ -367,8 +366,6 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Prevent the dialer from changing states if the Bulwark's Ambry is not unlocked.
          */
-        // TODO test with artifactworld
-        // TODO test without artifactworld
         private void PortalDialerIdleState_OnActivationServer(On.RoR2.PortalDialerController.PortalDialerIdleState.orig_OnActivationServer orig, BaseState self, Interactor interactor)
         {
             if (CheckBlocked(artifactworld))
@@ -378,16 +375,6 @@ namespace Archipelago.RiskOfRain2.Handlers
                 return;
             }
             orig(self, interactor);
-        }
-
-        /**
-         *  Block the destination of Bulwark's Ambry if the environment is not unlocked.
-         */
-        [Obsolete] // XXX
-        private void PortalDialerController_OpenArtifactPortalServer(On.RoR2.PortalDialerController.orig_OpenArtifactPortalServer orig, PortalDialerController self, ArtifactDef artifactDef)
-        {
-            if (CheckBlocked(artifactworld)) return;
-            orig(self, artifactDef);
         }
 
         /**
@@ -410,8 +397,6 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Give a warning before attempting to Obliterate while A Monument, Whole is still blocked.
          */
-        // TODO test with limbo
-        // TODO test without limbo
         private void ReadyToEndGame_OnEnter(On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.orig_OnEnter orig, EntityStates.Interactables.MSObelisk.ReadyToEndGame self)
         {
             // Giving this warning is important for fairness.
