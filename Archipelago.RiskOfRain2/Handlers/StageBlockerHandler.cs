@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using EntityStates;
 using RoR2;
+using System;
+using System.Collections.Generic;
 
 namespace Archipelago.RiskOfRain2.Handlers
 {
@@ -48,34 +50,42 @@ namespace Archipelago.RiskOfRain2.Handlers
 
         public StageBlockerHandler()
         {
-            // TODO figure out what stages to block from the settings or YAML or something
             blocked_stages = new List<int>();
 
             BlockAll();
-            // TODO make the server push the precollected first stage
-
-            // TODO block portals for dimensions that cannot be traveld to from spawning
-            // TODO block bazar shop from purchasing environments that should be blocked
-
-            // unblock some stages for testing
-            // XXX remove this stuff
-            //UnBlock(blackbeach);
-            //UnBlock(goolake);
-            //UnBlock(frozenwall);
         }
 
         public void Hook()
         {
             On.RoR2.Run.CanPickStage += Run_CanPickStage;
+            On.RoR2.TeleporterInteraction.AttemptToSpawnAllEligiblePortals += TeleporterInteraction_AttemptToSpawnAllEligiblePortals1;
+            On.RoR2.SeerStationController.SetTargetScene += SeerStationController_SetTargetScene;
+            On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate += TransitionToNextStage_FixedUpdate;
+            On.RoR2.PortalDialerController.OpenArtifactPortalServer += PortalDialerController_OpenArtifactPortalServer;
+            On.RoR2.FrogController.Pet += FrogController_Pet;
+            On.RoR2.PortalSpawner.AttemptSpawnPortalServer += PortalSpawner_AttemptSpawnPortalServer;
+            On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability += GenericInteraction_RoR2_IInteractable_GetInteractability;
+            On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
         }
 
         public void UnHook()
         {
             On.RoR2.Run.CanPickStage -= Run_CanPickStage;
+            On.RoR2.TeleporterInteraction.AttemptToSpawnAllEligiblePortals -= TeleporterInteraction_AttemptToSpawnAllEligiblePortals1;
+            On.RoR2.SeerStationController.SetTargetScene -= SeerStationController_SetTargetScene;
+            On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate -= TransitionToNextStage_FixedUpdate;
+            On.RoR2.PortalDialerController.OpenArtifactPortalServer -= PortalDialerController_OpenArtifactPortalServer;
+            On.RoR2.FrogController.Pet -= FrogController_Pet;
+            On.RoR2.PortalSpawner.AttemptSpawnPortalServer -= PortalSpawner_AttemptSpawnPortalServer;
+            On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability -= GenericInteraction_RoR2_IInteractable_GetInteractability;
+            On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
         }
 
         public void BlockAll()
         {
+            // TODO add support for only blocking environments known to be in the pool
+            // (eg. simulacrum should not be blocked if not in the pool, otherwise it would be permanently locked)
+
             // scenes from https://risk-of-thunder.github.io/R2Wiki/Mod-Creation/Developer-Reference/Scene-Names/
             // block all main scenes
             Block(ancientloft);        // Aphelian Sanctuary
@@ -141,12 +151,28 @@ namespace Archipelago.RiskOfRain2.Handlers
         }
 
         /**
+         * Returns true if a stage is blocked.
+         */
+        public bool CheckBlocked(int index)
+        {
+            foreach (int block in blocked_stages)
+            {
+                if (index == block)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
          * Unblocks a given environment.
          * Uses the English Titles found here: https://risk-of-thunder.github.io/R2Wiki/Mod-Creation/Developer-Reference/Scene-Names/
          * For environments with 2 varients, the second varient has " (2)" appended to the name.
          * For simulacrum, the stages have the non-simulacrum name appended in parenthesis.
          * Returns true if the stage was unblocked by this call.
          */
+        [Obsolete]
         public bool UnBlock(string environmentname)
         {
             Log.LogDebug($"UnBlocking {environmentname}."); // XXX remove extra debug
@@ -219,21 +245,160 @@ namespace Archipelago.RiskOfRain2.Handlers
             }
         }
 
-        private bool Run_CanPickStage(On.RoR2.Run.orig_CanPickStage orig, Run self, SceneDef scenedef)
+        /**
+         * Swap the teleporter to use the next stage instead of go to Commencement if the environment is not unlocked.
+         */
+        // TODO
+        private void SceneExitController_SetState(On.RoR2.SceneExitController.orig_SetState orig, SceneExitController self, SceneExitController.ExitState newState)
         {
-            Log.LogDebug($"Checking CanPickStage for {scenedef.nameToken}..."); // XXX remove extra debug
-            int index = (int) scenedef.sceneDefIndex;
-            foreach (int block in blocked_stages)
+            if (
+                // only attempt to switch anything if the exit state is finish, ie SetState will attempt to teleport
+                newState == SceneExitController.ExitState.Finished &&
+                // don't care if there is no next scene
+                (bool)self.destinationScene &&
+                // if there is a next scene that is the moon...
+                (int)self.destinationScene.sceneDefIndex == moon2 &&
+                // and the moon should be blocked...
+                CheckBlocked(moon2)
+                )
             {
-                // if the stage is blocked, it cannot be picked
-                if (index == block)
+                // then actually go to the next stage
+                self.useRunNextStageScene = true;
+            }
+            orig(self, newState);
+        }
+
+        /**
+         * Block interaction with the Void Fields portal if the environment is not unlocked.
+         */
+        // TODO test
+        private Interactability GenericInteraction_RoR2_IInteractable_GetInteractability(On.RoR2.GenericInteraction.orig_RoR2_IInteractable_GetInteractability orig, GenericInteraction self, Interactor activator)
+        {
+            switch (self.contextToken) {
+                case "PORTAL_ARENA_CONTEXT":
+                    if (CheckBlocked(arena)) return Interactability.ConditionsNotMet;
+                    break;
+                // Arguably the other portals could be handled here as well,
+                // however it seems more user friendly to just not spawn the portal at all rather
+                // than spawn the portal and make it unable to be interacted with.
+            }
+            return orig(self, activator);
+        }
+
+        /**
+         * Block the spawning of the Void Locus portal if the environment is not unlocked.
+         */
+        // TODO test
+        private bool PortalSpawner_AttemptSpawnPortalServer(On.RoR2.PortalSpawner.orig_AttemptSpawnPortalServer orig, PortalSpawner self)
+        {
+
+            if (CheckBlocked(voidstage))
+            {
+                // block voidstage
+                if (self.portalSpawnCard == LegacyResourcesAPI.Load<InteractableSpawnCard>("SpawnCards/InteractableSpawnCard/iscDeepVoidPortal"))
                 {
-                    Log.LogDebug("blocking."); // XXX remove extra debug
                     return false;
                 }
+
+                // not blocking voidraid:
+                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
+                // Since this currently seems like an edge case where the player would truely decide to do both
+                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
+                // Only the glass frog interaction in Commencement will be blocked.
+                // This also prevents the player from becoming stuck.
+            }
+            return orig(self);
+        }
+
+        /**
+         * Block players from petting the frog and refund them if the Planetarium is not unlocked.
+         */
+        // TODO test
+        private void FrogController_Pet(On.RoR2.FrogController.orig_Pet orig, FrogController self, Interactor interactor)
+        {
+            if (CheckBlocked(voidraid))
+            {
+                // refund the lunar coin if the player who payed the coin is this client's player
+                if (interactor.GetComponent<CharacterBody>() == PlayerCharacterMasterController.instances[0].master.GetBody())
+                {
+                    PlayerCharacterMasterController.instances[0].master.GiveVoidCoins(1);
+                }
+            }
+            orig(self, interactor);
+        }
+
+        /**
+         *  Block the destination of Bulwark's Ambry if the environment is not unlocked.
+         */
+        // TODO test
+        private void PortalDialerController_OpenArtifactPortalServer(On.RoR2.PortalDialerController.orig_OpenArtifactPortalServer orig, PortalDialerController self, ArtifactDef artifactDef)
+        {
+            if (CheckBlocked(artifactworld)) return;
+            orig(self, artifactDef);
+        }
+
+        /**
+         * Block going to A Monument, Whole if the environment is not unlocked.
+         */
+        // TODO test
+        private void TransitionToNextStage_FixedUpdate(On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.orig_FixedUpdate orig, EntityStates.Interactables.MSObelisk.TransitionToNextStage self)
+        {
+            if (CheckBlocked(limbo))
+            {
+                // run normal obliterate ending
+                Run.instance.BeginGameOver(RoR2Content.GameEndings.ObliterationEnding);
+                self.outer.SetNextState(new Idle());
+            }
+            orig(self);
+        }
+
+        /**
+         * Block shop interation with Bazaar Seers for environments that are blocked.
+         */
+        // TODO test
+        private void SeerStationController_SetTargetScene(On.RoR2.SeerStationController.orig_SetTargetScene orig, SeerStationController self, SceneDef sceneDef)
+        {
+            int index = (int) sceneDef.sceneDefIndex;
+            if (CheckBlocked(index))
+            {
+                Log.LogDebug($"Bazaar Seer attempted to pick scene {index}; blocked.");
+                return;
+            }
+            orig(self, sceneDef);
+        }
+
+        /**
+         * Block portals for blocked environments that would be spawned by the finishing teleporter event.
+         */
+        // TODO test
+        private void TeleporterInteraction_AttemptToSpawnAllEligiblePortals1(On.RoR2.TeleporterInteraction.orig_AttemptToSpawnAllEligiblePortals orig, TeleporterInteraction self)
+        {
+            // the portals spawned by the teleporter event are for:
+            // Hidden Realm: Bazaar Between Time
+            // Hidden Realm: Gilded Coast
+            // Hidden Realm: A Moment, Fractured
+            if (CheckBlocked(bazaar)) self.shouldAttemptToSpawnShopPortal = false;
+            if (CheckBlocked(goldshores)) self.shouldAttemptToSpawnShopPortal = false;
+            if (CheckBlocked(mysteryspace)) self.shouldAttemptToSpawnMSPortal = false;
+            // TODO does this need debug?
+            orig(self);
+        }
+
+        /**
+         * Forcefully fail to the CanPickStage check for stages that are blocked.
+         */
+        private bool Run_CanPickStage(On.RoR2.Run.orig_CanPickStage orig, Run self, SceneDef scenedef)
+        {
+            Log.LogDebug($"Checking CanPickStage for {scenedef.nameToken}...");
+            int index = (int) scenedef.sceneDefIndex;
+            if (CheckBlocked(index))
+            {
+                // if the stage is blocked, it cannot be picked
+                Log.LogDebug("blocking.");
+                return false;
             }
 
-            Log.LogDebug("passing through."); // XXX remove extra debug
+            Log.LogDebug("passing through.");
 
             return orig(self, scenedef);
         }
