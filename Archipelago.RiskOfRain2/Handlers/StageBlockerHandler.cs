@@ -1,7 +1,10 @@
 ﻿using EntityStates;
+using R2API.Utils;
 using RoR2;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Networking;
 
 namespace Archipelago.RiskOfRain2.Handlers
 {
@@ -60,8 +63,10 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.Run.CanPickStage += Run_CanPickStage;
             On.RoR2.TeleporterInteraction.AttemptToSpawnAllEligiblePortals += TeleporterInteraction_AttemptToSpawnAllEligiblePortals1;
             On.RoR2.SeerStationController.SetTargetScene += SeerStationController_SetTargetScene;
+            On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter += ReadyToEndGame_OnEnter;
             On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate += TransitionToNextStage_FixedUpdate;
-            On.RoR2.PortalDialerController.OpenArtifactPortalServer += PortalDialerController_OpenArtifactPortalServer;
+            //On.RoR2.PortalDialerController.OpenArtifactPortalServer += PortalDialerController_OpenArtifactPortalServer; // XXX
+            On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer += PortalDialerIdleState_OnActivationServer;
             On.RoR2.FrogController.Pet += FrogController_Pet;
             On.RoR2.PortalSpawner.AttemptSpawnPortalServer += PortalSpawner_AttemptSpawnPortalServer;
             On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability += GenericInteraction_RoR2_IInteractable_GetInteractability;
@@ -73,8 +78,10 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.Run.CanPickStage -= Run_CanPickStage;
             On.RoR2.TeleporterInteraction.AttemptToSpawnAllEligiblePortals -= TeleporterInteraction_AttemptToSpawnAllEligiblePortals1;
             On.RoR2.SeerStationController.SetTargetScene -= SeerStationController_SetTargetScene;
+            On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter -= ReadyToEndGame_OnEnter;
             On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate -= TransitionToNextStage_FixedUpdate;
-            On.RoR2.PortalDialerController.OpenArtifactPortalServer -= PortalDialerController_OpenArtifactPortalServer;
+            //On.RoR2.PortalDialerController.OpenArtifactPortalServer -= PortalDialerController_OpenArtifactPortalServer; // XXX
+            On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer -= PortalDialerIdleState_OnActivationServer;
             On.RoR2.FrogController.Pet -= FrogController_Pet;
             On.RoR2.PortalSpawner.AttemptSpawnPortalServer -= PortalSpawner_AttemptSpawnPortalServer;
             On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability -= GenericInteraction_RoR2_IInteractable_GetInteractability;
@@ -155,12 +162,11 @@ namespace Archipelago.RiskOfRain2.Handlers
          */
         public bool CheckBlocked(int index)
         {
+            // Checking the list linearly should be fine.
+            // Hooking update methods were avoided as much as they could be and the list itself is short.
             foreach (int block in blocked_stages)
             {
-                if (index == block)
-                {
-                    return true;
-                }
+                if (index == block) return true;
             }
             return false;
         }
@@ -172,7 +178,7 @@ namespace Archipelago.RiskOfRain2.Handlers
          * For simulacrum, the stages have the non-simulacrum name appended in parenthesis.
          * Returns true if the stage was unblocked by this call.
          */
-        [Obsolete]
+        [Obsolete("Using item names should be avoided. Use the method with an int.", false)]
         public bool UnBlock(string environmentname)
         {
             Log.LogDebug($"UnBlocking {environmentname}."); // XXX remove extra debug
@@ -251,6 +257,7 @@ namespace Archipelago.RiskOfRain2.Handlers
         // TODO
         private void SceneExitController_SetState(On.RoR2.SceneExitController.orig_SetState orig, SceneExitController self, SceneExitController.ExitState newState)
         {
+            // TODO maybe make the teleporter completely unable to align with the moon.
             if (
                 // only attempt to switch anything if the exit state is finish, ie SetState will attempt to teleport
                 newState == SceneExitController.ExitState.Finished &&
@@ -276,7 +283,11 @@ namespace Archipelago.RiskOfRain2.Handlers
         {
             switch (self.contextToken) {
                 case "PORTAL_ARENA_CONTEXT":
-                    if (CheckBlocked(arena)) return Interactability.ConditionsNotMet;
+                    if (CheckBlocked(arena))
+                    {
+                        ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
+                        return Interactability.ConditionsNotMet;
+                    }
                     break;
                 // Arguably the other portals could be handled here as well,
                 // however it seems more user friendly to just not spawn the portal at all rather
@@ -306,6 +317,13 @@ namespace Archipelago.RiskOfRain2.Handlers
                 //  if the player gets the Planetarium portal from Void Locus, they can travel there.
                 // Only the glass frog interaction in Commencement will be blocked.
                 // This also prevents the player from becoming stuck.
+
+                // cannot block arena:
+                // NOTE: It would be nice to block the portal to void fields in the same way.
+                // This however can't happen because the portal is already added to the scene
+                //  and so it would not spawn using this method.
+                // On top of that, the portal does not have a spawn card so it cannot be distinguished
+                //  even if this method was used to spawn it.
             }
             return orig(self);
         }
@@ -322,7 +340,28 @@ namespace Archipelago.RiskOfRain2.Handlers
                 if (interactor.GetComponent<CharacterBody>() == PlayerCharacterMasterController.instances[0].master.GetBody())
                 {
                     PlayerCharacterMasterController.instances[0].master.GiveVoidCoins(1);
+                    ChatMessage.SendColored("The frog does not want to be pet.", Color.white);
+                    return;
+                    // We block usage of the frog out of quality of life.
+                    // It would feel unfail to use 10 coins just to not spawn a portal or spawn a portal the user cannot use.
+                    // By adding coins back to the users inventory, it shows that the transaction cannot go through.
+                    // Adding a message also makes this even more clear.
                 }
+            }
+            orig(self, interactor);
+        }
+
+        /**
+         * Prevent the dialer from changing states if the Bulwark's Ambry is not unlocked.
+         */
+        // TODO test
+        private void PortalDialerIdleState_OnActivationServer(On.RoR2.PortalDialerController.PortalDialerIdleState.orig_OnActivationServer orig, BaseState self, Interactor interactor)
+        {
+            if (CheckBlocked(artifactworld))
+            {
+                // give a message so the user is aware the portal dialer interaction is blocked
+                ChatMessage.SendColored("The laptop seems busy right now.", new Color(0xd8, 0x7f, 0x20));
+                return;
             }
             orig(self, interactor);
         }
@@ -330,7 +369,7 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          *  Block the destination of Bulwark's Ambry if the environment is not unlocked.
          */
-        // TODO test
+        [Obsolete]
         private void PortalDialerController_OpenArtifactPortalServer(On.RoR2.PortalDialerController.orig_OpenArtifactPortalServer orig, PortalDialerController self, ArtifactDef artifactDef)
         {
             if (CheckBlocked(artifactworld)) return;
@@ -343,6 +382,9 @@ namespace Archipelago.RiskOfRain2.Handlers
         // TODO test
         private void TransitionToNextStage_FixedUpdate(On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.orig_FixedUpdate orig, EntityStates.Interactables.MSObelisk.TransitionToNextStage self)
         {
+            // If the player decides to commit to Obliterating,
+            //  they transition state should simply end the game normally
+            //  (since the player should not be allowed into limbo).
             if (CheckBlocked(limbo))
             {
                 // run normal obliterate ending
@@ -353,14 +395,47 @@ namespace Archipelago.RiskOfRain2.Handlers
         }
 
         /**
+         * Give a warning before attempting to Obliterate while A Monument, Whole is still blocked.
+         */
+        // TODO test
+        private void ReadyToEndGame_OnEnter(On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.orig_OnEnter orig, EntityStates.Interactables.MSObelisk.ReadyToEndGame self)
+        {
+            // Giving this warning is important for fairness.
+            // This is because if the player decides to still Obliterate,
+            //  we are just going to forcefully end the run.
+
+            // Check if this is the server running this OnEnter, since mutliplayer clients could run this.
+            // This is used to prevent duplicate messages being sent in multiplayer.
+            if (NetworkServer.active)
+            {
+                for (int i = 0; i < CharacterMaster.readOnlyInstancesList.Count; i++)
+                {
+                    if (CharacterMaster.readOnlyInstancesList[i].inventory.GetItemCount(RoR2Content.Items.LunarTrinket) > 0)
+                    {
+                        ChatMessage.SendColored("Despite having Beads, you are not yet ready...", new Color(0x5d, 0xd5, 0xe2));
+                        break;
+                    }
+                }
+            }
+            orig(self);
+        }
+
+        /**
          * Block shop interation with Bazaar Seers for environments that are blocked.
          */
         // TODO test
         private void SeerStationController_SetTargetScene(On.RoR2.SeerStationController.orig_SetTargetScene orig, SeerStationController self, SceneDef sceneDef)
         {
+            // For the seers, we will not change their behavior for how they pick environments.
+            // This behaviour could be changed but would require changing logic in the middle of SetUpSeerStations() which would take IL Hooks.
+            // This has the consequence that seers can pick environments that are blocked.
+            // In that case, we can just block the seer be able to be interacted with.
+            // We also should hide the destination of the Seer since the it will not be reenabled when the player obtains the environment.
+
             int index = (int) sceneDef.sceneDefIndex;
             if (CheckBlocked(index))
             {
+                self.GetComponent<PurchaseInteraction>().SetAvailable(false);
                 Log.LogDebug($"Bazaar Seer attempted to pick scene {index}; blocked.");
                 return;
             }
@@ -373,14 +448,30 @@ namespace Archipelago.RiskOfRain2.Handlers
         // TODO test
         private void TeleporterInteraction_AttemptToSpawnAllEligiblePortals1(On.RoR2.TeleporterInteraction.orig_AttemptToSpawnAllEligiblePortals orig, TeleporterInteraction self)
         {
+            // If the player unlocks the environments while they have orbs, they can still recieved the portals.
+            // But as soon as the teleporter finishes, we will not give them the portals.
+            // There could be a more friendly alternative but this should be fine.
+
             // the portals spawned by the teleporter event are for:
             // Hidden Realm: Bazaar Between Time
             // Hidden Realm: Gilded Coast
             // Hidden Realm: A Moment, Fractured
-            if (CheckBlocked(bazaar)) self.shouldAttemptToSpawnShopPortal = false;
-            if (CheckBlocked(goldshores)) self.shouldAttemptToSpawnShopPortal = false;
-            if (CheckBlocked(mysteryspace)) self.shouldAttemptToSpawnMSPortal = false;
-            // TODO does this need debug?
+
+            if (CheckBlocked(bazaar))
+            {
+                if (self.shouldAttemptToSpawnShopPortal) Log.LogDebug("Blue / bazaar portal blocked.");
+                self.shouldAttemptToSpawnShopPortal = false;
+            }
+            if (CheckBlocked(goldshores))
+            {
+                if (self.shouldAttemptToSpawnGoldshoresPortal) Log.LogDebug("Gold / goldshores portal blocked.");
+                self.shouldAttemptToSpawnGoldshoresPortal = false;
+            }
+            if (CheckBlocked(mysteryspace))
+            {
+                if (self.shouldAttemptToSpawnMSPortal) Log.LogDebug("Celestial / mysteryspace portal blocked.");
+                self.shouldAttemptToSpawnMSPortal = false;
+            }
             orig(self);
         }
 
