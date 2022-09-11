@@ -56,36 +56,37 @@ namespace Archipelago.RiskOfRain2.Handlers
             blocked_stages = new List<int>();
 
             BlockAll();
+            // TODO fix first stage unblock
         }
 
         public void Hook()
         {
             On.RoR2.Run.CanPickStage += Run_CanPickStage;
             On.RoR2.TeleporterInteraction.AttemptToSpawnAllEligiblePortals += TeleporterInteraction_AttemptToSpawnAllEligiblePortals1;
-            On.RoR2.SeerStationController.SetTargetScene += SeerStationController_SetTargetScene;
-            On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter += ReadyToEndGame_OnEnter;
-            On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate += TransitionToNextStage_FixedUpdate;
-            //On.RoR2.PortalDialerController.OpenArtifactPortalServer += PortalDialerController_OpenArtifactPortalServer; // XXX
-            On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer += PortalDialerIdleState_OnActivationServer;
-            On.RoR2.FrogController.Pet += FrogController_Pet;
-            On.RoR2.PortalSpawner.AttemptSpawnPortalServer += PortalSpawner_AttemptSpawnPortalServer;
-            On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability += GenericInteraction_RoR2_IInteractable_GetInteractability;
-            On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
+            //On.RoR2.SeerStationController.SetTargetScene += SeerStationController_SetTargetScene;
+            //On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter += ReadyToEndGame_OnEnter;
+            //On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate += TransitionToNextStage_FixedUpdate;
+            ////On.RoR2.PortalDialerController.OpenArtifactPortalServer += PortalDialerController_OpenArtifactPortalServer; // XXX
+            //On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer += PortalDialerIdleState_OnActivationServer;
+            //On.RoR2.FrogController.Pet += FrogController_Pet;
+            //On.RoR2.PortalSpawner.AttemptSpawnPortalServer += PortalSpawner_AttemptSpawnPortalServer;
+            //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability += GenericInteraction_RoR2_IInteractable_GetInteractability;
+            //On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
         }
 
         public void UnHook()
         {
             On.RoR2.Run.CanPickStage -= Run_CanPickStage;
             On.RoR2.TeleporterInteraction.AttemptToSpawnAllEligiblePortals -= TeleporterInteraction_AttemptToSpawnAllEligiblePortals1;
-            On.RoR2.SeerStationController.SetTargetScene -= SeerStationController_SetTargetScene;
-            On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter -= ReadyToEndGame_OnEnter;
-            On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate -= TransitionToNextStage_FixedUpdate;
-            //On.RoR2.PortalDialerController.OpenArtifactPortalServer -= PortalDialerController_OpenArtifactPortalServer; // XXX
-            On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer -= PortalDialerIdleState_OnActivationServer;
-            On.RoR2.FrogController.Pet -= FrogController_Pet;
-            On.RoR2.PortalSpawner.AttemptSpawnPortalServer -= PortalSpawner_AttemptSpawnPortalServer;
-            On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability -= GenericInteraction_RoR2_IInteractable_GetInteractability;
-            On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
+            //On.RoR2.SeerStationController.SetTargetScene -= SeerStationController_SetTargetScene;
+            //On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter -= ReadyToEndGame_OnEnter;
+            //On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate -= TransitionToNextStage_FixedUpdate;
+            ////On.RoR2.PortalDialerController.OpenArtifactPortalServer -= PortalDialerController_OpenArtifactPortalServer; // XXX
+            //On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer -= PortalDialerIdleState_OnActivationServer;
+            //On.RoR2.FrogController.Pet -= FrogController_Pet;
+            //On.RoR2.PortalSpawner.AttemptSpawnPortalServer -= PortalSpawner_AttemptSpawnPortalServer;
+            //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability -= GenericInteraction_RoR2_IInteractable_GetInteractability;
+            //On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
         }
 
         public void BlockAll()
@@ -278,9 +279,13 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block interaction with the Void Fields portal if the environment is not unlocked.
          */
-        // TODO test
+        // TODO test with arena
+        // TODO test with without
         private Interactability GenericInteraction_RoR2_IInteractable_GetInteractability(On.RoR2.GenericInteraction.orig_RoR2_IInteractable_GetInteractability orig, GenericInteraction self, Interactor activator)
         {
+            // XXX blocking chests?
+            // XXX doesn't block portal
+            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_GetInteractability: contextToken {self.contextToken}"); // remove possibly noisy debug
             switch (self.contextToken) {
                 case "PORTAL_ARENA_CONTEXT":
                     if (CheckBlocked(arena))
@@ -293,15 +298,18 @@ namespace Archipelago.RiskOfRain2.Handlers
                 // however it seems more user friendly to just not spawn the portal at all rather
                 // than spawn the portal and make it unable to be interacted with.
             }
+            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_GetInteractability: pass through"); // XXX remove possilby noisy debug
             return orig(self, activator);
         }
 
         /**
          * Block the spawning of the Void Locus portal if the environment is not unlocked.
          */
-        // TODO test
+        // TODO test with locus
+        // TODO test without locus
         private bool PortalSpawner_AttemptSpawnPortalServer(On.RoR2.PortalSpawner.orig_AttemptSpawnPortalServer orig, PortalSpawner self)
         {
+            Log.LogDebug("Spawning portal via card."); // XXX remove extra debug
 
             if (CheckBlocked(voidstage))
             {
@@ -331,7 +339,8 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block players from petting the frog and refund them if the Planetarium is not unlocked.
          */
-        // TODO test
+        // TODO test with planetarium
+        // TODO test without planetarium
         private void FrogController_Pet(On.RoR2.FrogController.orig_Pet orig, FrogController self, Interactor interactor)
         {
             if (CheckBlocked(voidraid))
@@ -354,7 +363,8 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Prevent the dialer from changing states if the Bulwark's Ambry is not unlocked.
          */
-        // TODO test
+        // TODO test with artifactworld
+        // TODO test without artifactworld
         private void PortalDialerIdleState_OnActivationServer(On.RoR2.PortalDialerController.PortalDialerIdleState.orig_OnActivationServer orig, BaseState self, Interactor interactor)
         {
             if (CheckBlocked(artifactworld))
@@ -369,7 +379,7 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          *  Block the destination of Bulwark's Ambry if the environment is not unlocked.
          */
-        [Obsolete]
+        [Obsolete] // XXX
         private void PortalDialerController_OpenArtifactPortalServer(On.RoR2.PortalDialerController.orig_OpenArtifactPortalServer orig, PortalDialerController self, ArtifactDef artifactDef)
         {
             if (CheckBlocked(artifactworld)) return;
@@ -379,7 +389,8 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block going to A Monument, Whole if the environment is not unlocked.
          */
-        // TODO test
+        // TODO test with limbo
+        // TODO test without limbo
         private void TransitionToNextStage_FixedUpdate(On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.orig_FixedUpdate orig, EntityStates.Interactables.MSObelisk.TransitionToNextStage self)
         {
             // If the player decides to commit to Obliterating,
@@ -397,7 +408,8 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Give a warning before attempting to Obliterate while A Monument, Whole is still blocked.
          */
-        // TODO test
+        // TODO test with limbo
+        // TODO test without limbo
         private void ReadyToEndGame_OnEnter(On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.orig_OnEnter orig, EntityStates.Interactables.MSObelisk.ReadyToEndGame self)
         {
             // Giving this warning is important for fairness.
@@ -426,6 +438,8 @@ namespace Archipelago.RiskOfRain2.Handlers
         // TODO test
         private void SeerStationController_SetTargetScene(On.RoR2.SeerStationController.orig_SetTargetScene orig, SeerStationController self, SceneDef sceneDef)
         {
+            // XXX affecting buds?
+
             // For the seers, we will not change their behavior for how they pick environments.
             // This behaviour could be changed but would require changing logic in the middle of SetUpSeerStations() which would take IL Hooks.
             // This has the consequence that seers can pick environments that are blocked.
@@ -445,9 +459,16 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block portals for blocked environments that would be spawned by the finishing teleporter event.
          */
-        // TODO test
+        // TODO test with bazaar
+        // TODO test with goldshores
+        // TODO test with mysteryspace
+        // TODO test without bazaar
+        // TODO test without goldshores
+        // TODO test without mysteryspace
         private void TeleporterInteraction_AttemptToSpawnAllEligiblePortals1(On.RoR2.TeleporterInteraction.orig_AttemptToSpawnAllEligiblePortals orig, TeleporterInteraction self)
         {
+            Log.LogDebug("TeleporterInteraction_AttemptToSpawnAllEligiblePortals1"); // XXX
+
             // If the player unlocks the environments while they have orbs, they can still recieved the portals.
             // But as soon as the teleporter finishes, we will not give them the portals.
             // There could be a more friendly alternative but this should be fine.
