@@ -63,9 +63,9 @@ namespace Archipelago.RiskOfRain2.Handlers
         {
             On.RoR2.Run.CanPickStage += Run_CanPickStage;
             On.RoR2.TeleporterInteraction.AttemptToSpawnAllEligiblePortals += TeleporterInteraction_AttemptToSpawnAllEligiblePortals1;
-            //On.RoR2.SeerStationController.SetTargetScene += SeerStationController_SetTargetScene;
-            //On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter += ReadyToEndGame_OnEnter;
-            //On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate += TransitionToNextStage_FixedUpdate;
+            On.RoR2.SeerStationController.SetTargetScene += SeerStationController_SetTargetScene;
+            On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter += ReadyToEndGame_OnEnter;
+            On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate += TransitionToNextStage_FixedUpdate;
             ////On.RoR2.PortalDialerController.OpenArtifactPortalServer += PortalDialerController_OpenArtifactPortalServer; // XXX
             //On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer += PortalDialerIdleState_OnActivationServer;
             //On.RoR2.FrogController.Pet += FrogController_Pet;
@@ -78,9 +78,9 @@ namespace Archipelago.RiskOfRain2.Handlers
         {
             On.RoR2.Run.CanPickStage -= Run_CanPickStage;
             On.RoR2.TeleporterInteraction.AttemptToSpawnAllEligiblePortals -= TeleporterInteraction_AttemptToSpawnAllEligiblePortals1;
-            //On.RoR2.SeerStationController.SetTargetScene -= SeerStationController_SetTargetScene;
-            //On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter -= ReadyToEndGame_OnEnter;
-            //On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate -= TransitionToNextStage_FixedUpdate;
+            On.RoR2.SeerStationController.SetTargetScene -= SeerStationController_SetTargetScene;
+            On.EntityStates.Interactables.MSObelisk.ReadyToEndGame.OnEnter -= ReadyToEndGame_OnEnter;
+            On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate -= TransitionToNextStage_FixedUpdate;
             ////On.RoR2.PortalDialerController.OpenArtifactPortalServer -= PortalDialerController_OpenArtifactPortalServer; // XXX
             //On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer -= PortalDialerIdleState_OnActivationServer;
             //On.RoR2.FrogController.Pet -= FrogController_Pet;
@@ -258,7 +258,11 @@ namespace Archipelago.RiskOfRain2.Handlers
         // TODO
         private void SceneExitController_SetState(On.RoR2.SceneExitController.orig_SetState orig, SceneExitController self, SceneExitController.ExitState newState)
         {
-            // TODO maybe make the teleporter completely unable to align with the moon.
+            // TODO maybe make the teleporter completely unable to align with the moon for user friendliness
+
+            // This method can be used to block going to other environments,
+            //  however there are other methods ways that are more intuitive or friendly to the user.
+
             if (
                 // only attempt to switch anything if the exit state is finish, ie SetState will attempt to teleport
                 newState == SceneExitController.ExitState.Finished &&
@@ -389,8 +393,6 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block going to A Monument, Whole if the environment is not unlocked.
          */
-        // TODO test with limbo
-        // TODO test without limbo
         private void TransitionToNextStage_FixedUpdate(On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.orig_FixedUpdate orig, EntityStates.Interactables.MSObelisk.TransitionToNextStage self)
         {
             // If the player decides to commit to Obliterating,
@@ -418,7 +420,7 @@ namespace Archipelago.RiskOfRain2.Handlers
 
             // Check if this is the server running this OnEnter, since mutliplayer clients could run this.
             // This is used to prevent duplicate messages being sent in multiplayer.
-            if (NetworkServer.active)
+            if (NetworkServer.active && CheckBlocked(limbo))
             {
                 for (int i = 0; i < CharacterMaster.readOnlyInstancesList.Count; i++)
                 {
@@ -435,11 +437,8 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block shop interation with Bazaar Seers for environments that are blocked.
          */
-        // TODO test
         private void SeerStationController_SetTargetScene(On.RoR2.SeerStationController.orig_SetTargetScene orig, SeerStationController self, SceneDef sceneDef)
         {
-            // XXX affecting buds?
-
             // For the seers, we will not change their behavior for how they pick environments.
             // This behaviour could be changed but would require changing logic in the middle of SetUpSeerStations() which would take IL Hooks.
             // This has the consequence that seers can pick environments that are blocked.
@@ -459,16 +458,8 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block portals for blocked environments that would be spawned by the finishing teleporter event.
          */
-        // TODO test with bazaar
-        // TODO test with goldshores
-        // TODO test with mysteryspace
-        // TODO test without bazaar
-        // TODO test without goldshores
-        // TODO test without mysteryspace
         private void TeleporterInteraction_AttemptToSpawnAllEligiblePortals1(On.RoR2.TeleporterInteraction.orig_AttemptToSpawnAllEligiblePortals orig, TeleporterInteraction self)
         {
-            Log.LogDebug("TeleporterInteraction_AttemptToSpawnAllEligiblePortals1"); // XXX
-
             // If the player unlocks the environments while they have orbs, they can still recieved the portals.
             // But as soon as the teleporter finishes, we will not give them the portals.
             // There could be a more friendly alternative but this should be fine.
