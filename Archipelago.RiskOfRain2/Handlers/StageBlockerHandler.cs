@@ -72,6 +72,7 @@ namespace Archipelago.RiskOfRain2.Handlers
             //On.RoR2.PortalSpawner.Start += PortalSpawner_Start;
             //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability += GenericInteraction_RoR2_IInteractable_GetInteractability;
             //On.RoR2.GenericInteraction.RoR2_IInteractable_OnInteractionBegin += GenericInteraction_RoR2_IInteractable_OnInteractionBegin;
+            On.RoR2.Interactor.PerformInteraction += Interactor_PerformInteraction;
             On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
         }
 
@@ -88,6 +89,7 @@ namespace Archipelago.RiskOfRain2.Handlers
             //On.RoR2.PortalSpawner.Start -= PortalSpawner_Start;
             //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability -= GenericInteraction_RoR2_IInteractable_GetInteractability;
             //On.RoR2.GenericInteraction.RoR2_IInteractable_OnInteractionBegin -= GenericInteraction_RoR2_IInteractable_OnInteractionBegin;
+            On.RoR2.Interactor.PerformInteraction += Interactor_PerformInteraction;
             On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
         }
 
@@ -238,10 +240,7 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block interaction with the Void Fields and Void Locus portal if the environment is not unlocked.
          */
-        // TODO test with arena
-        // TODO test without arena
-        // TODO test with voidstage
-        // TODO test without voidstage
+        [Obsolete]
         private void GenericInteraction_RoR2_IInteractable_OnInteractionBegin(On.RoR2.GenericInteraction.orig_RoR2_IInteractable_OnInteractionBegin orig, GenericInteraction self, Interactor activator)
         {
             Log.LogDebug($"GenericInteraction_RoR2_IInteractable_OnInteractionBegin: contextToken {self.contextToken}"); // XXX remove possibly noisy debug
@@ -278,11 +277,61 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block interaction with the Void Fields portal if the environment is not unlocked.
          */
+        // TODO test with arena
+        // TODO test with voidstage
+        // TODO test without arena
+        // TODO test without voidstage
+        private void Interactor_PerformInteraction(On.RoR2.Interactor.orig_PerformInteraction orig, Interactor self, GameObject interactableObject)
+        {
+            if (NetworkServer.active && interactableObject)
+            {
+                // TODO how much does this affect performance?
+                foreach (IInteractable comp in interactableObject.GetComponents<IInteractable>())
+                {
+                    GenericInteraction gi = comp as GenericInteraction;
+                    if (gi)
+                    {
+                        switch (gi.contextToken)
+                        {
+                            case "PORTAL_ARENA_CONTEXT":
+                                if (CheckBlocked(arena))
+                                {
+                                    ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
+                                    gi.SetInteractabilityConditionsNotMet();
+                                }
+                                else gi.SetInteractabilityAvailable();
+                                break;
+                            case "PORTAL_VOID_CONTEXT":
+                                if (CheckBlocked(voidstage))
+                                {
+                                    ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
+                                    gi.SetInteractabilityConditionsNotMet();
+                                }
+                                else gi.SetInteractabilityAvailable();
+                                break;
+                            // not blocking voidraid:
+                            // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
+                            // Since this currently seems like an edge case where the player would truely decide to do both
+                            //  if the player gets the Planetarium portal from Void Locus, they can travel there.
+                            // Only the glass frog interaction in Commencement will be blocked.
+                            // This also prevents the player from becoming stuck.
+
+                            // Arguably the other portals could be handled here as well,
+                            // however it seems more user friendly to just not spawn the portal at all rather
+                            // than spawn the portal and make it unable to be interacted with.
+                        }
+                    }
+                }
+            }
+            orig(self, interactableObject);
+        }
+
+        /**
+         * Block interaction with the Void Fields portal if the environment is not unlocked.
+         */
         [Obsolete]
         private Interactability GenericInteraction_RoR2_IInteractable_GetInteractability(On.RoR2.GenericInteraction.orig_RoR2_IInteractable_GetInteractability orig, GenericInteraction self, Interactor activator)
         {
-            // XXX blocking chests?
-            // XXX doesn't block portal
             Log.LogDebug($"GenericInteraction_RoR2_IInteractable_GetInteractability: contextToken {self.contextToken}"); // XXX remove possibly noisy debug
             switch (self.contextToken) {
                 case "PORTAL_ARENA_CONTEXT":
@@ -292,6 +341,20 @@ namespace Archipelago.RiskOfRain2.Handlers
                         return Interactability.ConditionsNotMet;
                     }
                     break;
+                case "PORTAL_VOID_CONTEXT":
+                    if (CheckBlocked(voidstage))
+                    {
+                        ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
+                        return Interactability.ConditionsNotMet;
+                    }
+                    break;
+                // not blocking voidraid:
+                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
+                // Since this currently seems like an edge case where the player would truely decide to do both
+                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
+                // Only the glass frog interaction in Commencement will be blocked.
+                // This also prevents the player from becoming stuck.
+
                 // Arguably the other portals could be handled here as well,
                 // however it seems more user friendly to just not spawn the portal at all rather
                 // than spawn the portal and make it unable to be interacted with.
