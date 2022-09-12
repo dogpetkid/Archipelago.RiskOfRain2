@@ -69,7 +69,9 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer += PortalDialerIdleState_OnActivationServer;
             On.RoR2.FrogController.Pet += FrogController_Pet;
             //On.RoR2.PortalSpawner.AttemptSpawnPortalServer += PortalSpawner_AttemptSpawnPortalServer;
+            //On.RoR2.PortalSpawner.Start += PortalSpawner_Start;
             //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability += GenericInteraction_RoR2_IInteractable_GetInteractability;
+            //On.RoR2.GenericInteraction.RoR2_IInteractable_OnInteractionBegin += GenericInteraction_RoR2_IInteractable_OnInteractionBegin;
             On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
         }
 
@@ -83,7 +85,9 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer -= PortalDialerIdleState_OnActivationServer;
             On.RoR2.FrogController.Pet -= FrogController_Pet;
             //On.RoR2.PortalSpawner.AttemptSpawnPortalServer -= PortalSpawner_AttemptSpawnPortalServer;
+            //On.RoR2.PortalSpawner.Start -= PortalSpawner_Start;
             //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability -= GenericInteraction_RoR2_IInteractable_GetInteractability;
+            //On.RoR2.GenericInteraction.RoR2_IInteractable_OnInteractionBegin -= GenericInteraction_RoR2_IInteractable_OnInteractionBegin;
             On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
         }
 
@@ -171,123 +175,115 @@ namespace Archipelago.RiskOfRain2.Handlers
         }
 
         /**
-         * Unblocks a given environment.
-         * Uses the English Titles found here: https://risk-of-thunder.github.io/R2Wiki/Mod-Creation/Developer-Reference/Scene-Names/
-         * For environments with 2 varients, the second varient has " (2)" appended to the name.
-         * For simulacrum, the stages have the non-simulacrum name appended in parenthesis.
-         * Returns true if the stage was unblocked by this call.
-         */
-        [Obsolete("Using item names should be avoided. Use the method with an int.", false)]
-        public bool UnBlock(string environmentname)
-        {
-            Log.LogDebug($"UnBlocking {environmentname}."); // XXX remove extra debug
-            switch (environmentname)
-            {
-                case "Aphelian Sanctuary":
-                    return UnBlock(3); // ancientloft
-                case "Void Fields":
-                    return UnBlock(4); // arena
-                case "Distant Roost":
-                    return UnBlock(7); // blackbeach
-                case "Distant Roost (2)":
-                    return UnBlock(8); // blackbeach2
-                case "Abyssal Depths":
-                    return UnBlock(10); // dampcavesimple
-                case "Wetland Aspect":
-                    return UnBlock(12); // foggyswamp
-                case "Rallypoint Delta":
-                    return UnBlock(13); // frozenwall
-                case "Titanic Plains":
-                    return UnBlock(15); // golemplains
-                case "Titanic Plains (2)":
-                    return UnBlock(16); // golemplains2
-                case "Abandoned Aqueduct":
-                    return UnBlock(17); // goolake
-                case "The Simulacrum (Aphelian Sanctuary)":
-                    return UnBlock(20); // itancientloft
-                case "The Simulacrum (Abyssal Depths)":
-                    return UnBlock(21); // itdampcave
-                case "The Simulacrum (Rallypoint Delta)":
-                    return UnBlock(22); // itfrozenwall
-                case "The Simulacrum (Titanic Plains)":
-                    return UnBlock(23); // itgolemplains
-                case "The Simulacrum (Abandoned Aqueduct)":
-                    return UnBlock(24); // itgoolake
-                case "The Simulacrum (Commencement)":
-                    return UnBlock(25); // itmoon
-                case "The Simulacrum (Sky Meadow)":
-                    return UnBlock(26); // itskymeadow
-                case "Commencement":
-                    return UnBlock(32); // moon2
-                case "Sundered Grove":
-                    return UnBlock(35); // rootjungle
-                case "Siren's Call":
-                    return UnBlock(37); // shipgraveyard
-                case "Sky Meadow":
-                    return UnBlock(38); // skymeadow
-                case "Siphoned Forest":
-                    return UnBlock(39); // snowyforest
-                case "Sulfur Pools":
-                    return UnBlock(41); // sulfurpools
-                case "Void Locus":
-                    return UnBlock(45); // voidstage
-                case "The Planetarium":
-                    return UnBlock(46); // voidraid
-                case "Scorched Acres":
-                    return UnBlock(47); // wispgraveyard
-                case "Hidden Realm: Bulwark's Ambry":
-                    return UnBlock(5); // artifactworld
-                case "Hidden Realm: Bazaar Between Time":
-                    return UnBlock(6); // bazaar
-                case "Hidden Realm: Gilded Coast":
-                    return UnBlock(14); // goldshores
-                case "Hidden Realm: A Moment, Whole":
-                    return UnBlock(27); // limbo
-                case "Hidden Realm: A Moment, Fractured":
-                    return UnBlock(33); // mysteryspace
-                default:
-                    return false;
-            }
-        }
-
-        /**
          * Swap the teleporter to use the next stage instead of go to Commencement if the environment is not unlocked.
          */
         private void SceneExitController_SetState(On.RoR2.SceneExitController.orig_SetState orig, SceneExitController self, SceneExitController.ExitState newState)
         {
-            // TODO maybe make the teleporter completely unable to align with the moon for user friendliness
-
             // This method can be used to block going to other environments,
             //  however there are other methods ways that are more intuitive or friendly to the user.
 
             if (
                 // only attempt to switch anything if the exit state is finish, ie SetState will attempt to teleport
                 newState == SceneExitController.ExitState.Finished &&
-                // don't care if there is no next scene
-                (bool)self.destinationScene &&
-                // if there is a next scene that is the moon...
-                (int)self.destinationScene.sceneDefIndex == moon2 &&
-                // and the moon should be blocked...
-                CheckBlocked(moon2)
-                )
+                // if there is no set destination, there is no need to block here
+                (bool)self.destinationScene)
             {
-                Log.LogDebug("Blocking portal alignment for moon2.");
-                // then actually go to the next stage
-                self.useRunNextStageScene = true;
+                if (
+                    // if the next scene is the moon...
+                    (int)self.destinationScene.sceneDefIndex == moon2 &&
+                    // and the moon should be blocked...
+                    CheckBlocked(moon2)
+                )
+                {
+                    Log.LogDebug("Blocking portal alignment for moon2.");
+                    // then actually go to the next stage
+                    self.useRunNextStageScene = true;
+                    // TODO maybe make the teleporter completely unable to align with the moon for user friendliness
+                }
+                // XXX
+                //if (
+                //    // if the next scene is the arena...
+                //    (int)self.destinationScene.sceneDefIndex == arena &&
+                //    // and the arena should be blocked...
+                //    CheckBlocked(arena)
+                //)
+                //{
+                //    Log.LogDebug("Blocking entrance to arena.");
+                //    // then actually go to the next stage
+                //    self.useRunNextStageScene = true;
+                //    // TODO maybe there is a way to block interaction with the portal itself...
+                //}
+                //if (
+                //    // if the next scene is the voidstage...
+                //    (int)self.destinationScene.sceneDefIndex == voidstage &&
+                //    // and the voidstage should be blocked...
+                //    CheckBlocked(voidstage)
+                //)
+                //{
+                //    Log.LogDebug("Blocking entrance to voidstage.");
+                //    // then actually go to the next stage
+                //    self.useRunNextStageScene = true;
+                //    // TODO maybe there is a way to block the voidstage portal itself
+                //}
+                // not blocking voidraid:
+                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
+                // Since this currently seems like an edge case where the player would truely decide to do both
+                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
+                // Only the glass frog interaction in Commencement will be blocked.
+                // This also prevents the player from becoming stuck.
             }
             orig(self, newState);
         }
 
         /**
-         * Block interaction with the Void Fields portal if the environment is not unlocked.
+         * Block interaction with the Void Fields and Void Locus portal if the environment is not unlocked.
          */
         // TODO test with arena
-        // TODO test with without
+        // TODO test without arena
+        // TODO test with voidstage
+        // TODO test without voidstage
+        private void GenericInteraction_RoR2_IInteractable_OnInteractionBegin(On.RoR2.GenericInteraction.orig_RoR2_IInteractable_OnInteractionBegin orig, GenericInteraction self, Interactor activator)
+        {
+            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_OnInteractionBegin: contextToken {self.contextToken}"); // XXX remove possibly noisy debug
+            switch (self.contextToken) {
+                case "PORTAL_ARENA_CONTEXT":
+                    if (CheckBlocked(arena))
+                    {
+                        ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
+                        return;
+                    }
+                    break;
+                case "PORTAL_VOID_CONTEXT":
+                    if (CheckBlocked(voidstage))
+                    {
+                        ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
+                        return;
+                    }
+                    break;
+                // not blocking voidraid:
+                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
+                // Since this currently seems like an edge case where the player would truely decide to do both
+                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
+                // Only the glass frog interaction in Commencement will be blocked.
+                // This also prevents the player from becoming stuck.
+
+                // Arguably the other portals could be handled here as well,
+                // however it seems more user friendly to just not spawn the portal at all rather
+                // than spawn the portal and make it unable to be interacted with.
+            }
+            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_OnInteractionBegin: pass through"); // XXX remove possilby noisy debug
+            orig(self, activator);
+        }
+
+        /**
+         * Block interaction with the Void Fields portal if the environment is not unlocked.
+         */
+        [Obsolete]
         private Interactability GenericInteraction_RoR2_IInteractable_GetInteractability(On.RoR2.GenericInteraction.orig_RoR2_IInteractable_GetInteractability orig, GenericInteraction self, Interactor activator)
         {
             // XXX blocking chests?
             // XXX doesn't block portal
-            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_GetInteractability: contextToken {self.contextToken}"); // remove possibly noisy debug
+            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_GetInteractability: contextToken {self.contextToken}"); // XXX remove possibly noisy debug
             switch (self.contextToken) {
                 case "PORTAL_ARENA_CONTEXT":
                     if (CheckBlocked(arena))
@@ -307,17 +303,19 @@ namespace Archipelago.RiskOfRain2.Handlers
         /**
          * Block the spawning of the Void Locus portal if the environment is not unlocked.
          */
-        // TODO test with locus
-        // TODO test without locus
+        [Obsolete]
         private bool PortalSpawner_AttemptSpawnPortalServer(On.RoR2.PortalSpawner.orig_AttemptSpawnPortalServer orig, PortalSpawner self)
         {
-            Log.LogDebug("Spawning portal via card."); // XXX remove extra debug
+            Log.LogDebug("PortalSpawner_AttemptSpawnPortalServer"); // XXX remove extra debug
 
             if (CheckBlocked(voidstage))
             {
+                // inspired by https://github.com/harbingerofme/DebugToolkit/blob/a23a5e1b3e6651d4684fb52ee29fae52d8c0b3c2/Code/DT-Commands/CurrentRun.cs#L83
+
                 // block voidstage
                 if (self.portalSpawnCard == LegacyResourcesAPI.Load<InteractableSpawnCard>("SpawnCards/InteractableSpawnCard/iscDeepVoidPortal"))
                 {
+                    Log.LogDebug("Blocking portal spawn for voidstage from PortalSpawner_AttemptSpawnPortalServer.");
                     return false;
                 }
 
@@ -339,26 +337,71 @@ namespace Archipelago.RiskOfRain2.Handlers
         }
 
         /**
+         * Block the spawning of the Void Locus portal if the environment is not unlocked.
+         */
+        [Obsolete]
+        private void PortalSpawner_Start(On.RoR2.PortalSpawner.orig_Start orig, PortalSpawner self)
+        {
+            Log.LogDebug("PortalSpawner_Start"); // XXX remove extra debug
+
+            if (CheckBlocked(voidstage))
+            {
+                // inspired by https://github.com/harbingerofme/DebugToolkit/blob/a23a5e1b3e6651d4684fb52ee29fae52d8c0b3c2/Code/DT-Commands/CurrentRun.cs#L83
+
+                // block voidstage
+                if (self.portalSpawnCard == LegacyResourcesAPI.Load<InteractableSpawnCard>("SpawnCards/InteractableSpawnCard/iscDeepVoidPortal"))
+                {
+                    Log.LogDebug("Blocking portal spawn for voidstage from PortalSpawner_Start.");
+                    return;
+                }
+
+                // not blocking voidraid:
+                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
+                // Since this currently seems like an edge case where the player would truely decide to do both
+                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
+                // Only the glass frog interaction in Commencement will be blocked.
+                // This also prevents the player from becoming stuck.
+
+                // cannot block arena:
+                // NOTE: It would be nice to block the portal to void fields in the same way.
+                // This however can't happen because the portal is already added to the scene
+                //  and so it would not spawn using this method.
+                // On top of that, the portal does not have a spawn card so it cannot be distinguished
+                //  even if this method was used to spawn it.
+            }
+            orig(self);
+        }
+
+        /**
          * Block players from petting the frog and refund them if the Planetarium is not unlocked.
          */
-        // TODO test with planetarium
-        // TODO test without planetarium
         private void FrogController_Pet(On.RoR2.FrogController.orig_Pet orig, FrogController self, Interactor interactor)
         {
+            // We block usage of the frog out of quality of life.
+            // It would feel unfail to use 10 coins just to not spawn a portal or spawn a portal the user cannot use.
+            // By adding coins back to the users inventory, it shows that the transaction cannot go through.
+            // Adding a message also makes this even more clear.
+
             if (CheckBlocked(voidraid))
             {
-                // refund the lunar coin if the player who payed the coin is this client's player
-                if (interactor.GetComponent<CharacterBody>() == PlayerCharacterMasterController.instances[0].master.GetBody())
+                Log.LogDebug("Blocking petting the frog for planetarium.");
+                // Only host can refund the coin and having the host send the message prevents duplicate messages.
+                if (NetworkServer.active)
                 {
-                    // XXX give lunar coins back
-                    PlayerCharacterMasterController.instances[0].master.GiveVoidCoins(1);
+                    Log.LogDebug("blocking planetarium as host.");
+                    //// refund the lunar coin if the player who payed the coin is this client's player
+                    //interactor.GetComponent<NetworkUser>().AwardLunarCoins(1); // (only the server actually executes the contents of this method) // XXX
+                    foreach (NetworkUser local in NetworkUser.readOnlyLocalPlayersList)
+                    {
+                        Log.LogDebug("Refunding coins...");
+                        local.AwardLunarCoins(1);
+                        // This does in fact give more coins back in multiplayer since every player would get a coin.
+                        // I don't have a solution for this right now : ^)
+                    }
+
                     ChatMessage.SendColored("The frog does not want to be pet.", Color.white);
-                    return;
-                    // We block usage of the frog out of quality of life.
-                    // It would feel unfail to use 10 coins just to not spawn a portal or spawn a portal the user cannot use.
-                    // By adding coins back to the users inventory, it shows that the transaction cannot go through.
-                    // Adding a message also makes this even more clear.
                 }
+                return;
             }
             orig(self, interactor);
         }
@@ -371,7 +414,7 @@ namespace Archipelago.RiskOfRain2.Handlers
             if (CheckBlocked(artifactworld))
             {
                 // give a message so the user is aware the portal dialer interaction is blocked
-                ChatMessage.SendColored("The laptop seems busy right now.", new Color(0xd8, 0x7f, 0x20));
+                ChatMessage.SendColored("Causes NRE... Not sure why.", new Color(0xd8, 0x7f, 0x20));
                 return;
             }
             orig(self, interactor);
