@@ -57,6 +57,7 @@ namespace Archipelago.RiskOfRain2.Handlers
 
             BlockAll();
             // TODO fix first stage unblock
+            // TODO change the teleporter behavior to choose the next stage after the teleporter is charging/charged
         }
 
         public void Hook()
@@ -68,12 +69,10 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate += TransitionToNextStage_FixedUpdate;
             On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer += PortalDialerIdleState_OnActivationServer;
             On.RoR2.FrogController.Pet += FrogController_Pet;
-            //On.RoR2.PortalSpawner.AttemptSpawnPortalServer += PortalSpawner_AttemptSpawnPortalServer;
-            //On.RoR2.PortalSpawner.Start += PortalSpawner_Start;
-            //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability += GenericInteraction_RoR2_IInteractable_GetInteractability;
-            //On.RoR2.GenericInteraction.RoR2_IInteractable_OnInteractionBegin += GenericInteraction_RoR2_IInteractable_OnInteractionBegin;
             On.RoR2.Interactor.PerformInteraction += Interactor_PerformInteraction;
             On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
+            //On.EntityStates.LunarTeleporter.Active.OnEnter += Active_OnEnter;
+            //On.EntityStates.LunarTeleporter.LunarTeleporterBaseState.FixedUpdate += LunarTeleporterBaseState_FixedUpdate;
         }
 
         public void UnHook()
@@ -85,12 +84,10 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.EntityStates.Interactables.MSObelisk.TransitionToNextStage.FixedUpdate -= TransitionToNextStage_FixedUpdate;
             On.RoR2.PortalDialerController.PortalDialerIdleState.OnActivationServer -= PortalDialerIdleState_OnActivationServer;
             On.RoR2.FrogController.Pet -= FrogController_Pet;
-            //On.RoR2.PortalSpawner.AttemptSpawnPortalServer -= PortalSpawner_AttemptSpawnPortalServer;
-            //On.RoR2.PortalSpawner.Start -= PortalSpawner_Start;
-            //On.RoR2.GenericInteraction.RoR2_IInteractable_GetInteractability -= GenericInteraction_RoR2_IInteractable_GetInteractability;
-            //On.RoR2.GenericInteraction.RoR2_IInteractable_OnInteractionBegin -= GenericInteraction_RoR2_IInteractable_OnInteractionBegin;
-            On.RoR2.Interactor.PerformInteraction += Interactor_PerformInteraction;
+            On.RoR2.Interactor.PerformInteraction -= Interactor_PerformInteraction;
             On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
+            //On.EntityStates.LunarTeleporter.Active.OnEnter -= Active_OnEnter;
+            //On.EntityStates.LunarTeleporter.LunarTeleporterBaseState.FixedUpdate -= LunarTeleporterBaseState_FixedUpdate;
         }
 
         public void BlockAll()
@@ -177,6 +174,55 @@ namespace Archipelago.RiskOfRain2.Handlers
         }
 
         /**
+         * Prevent the teleporter from being aligned while Commencement is not unlocked.
+         */
+        [Obsolete]
+        private void LunarTeleporterBaseState_FixedUpdate(On.EntityStates.LunarTeleporter.LunarTeleporterBaseState.orig_FixedUpdate orig, EntityStates.LunarTeleporter.LunarTeleporterBaseState self)
+        {
+            Log.LogDebug("LunarTeleporterBaseState_FixedUpdate"); // XXX doesn't seem to be called
+            orig(self);
+            // Let the original go first so that we can change make sure our state change is the last one done
+
+            // Block the teleporter alignment itself for user friendliness.
+
+            if (self is EntityStates.LunarTeleporter.Active)
+            {
+                if (CheckBlocked(moon2))
+                {
+                    // Make sure to bring the moon out of the aligned state that it spawns in.
+                    // This could be done in OnEnter but the Active and IdleToActive can be stuffed in the same hook.
+                    Log.LogDebug("Blocking initial teleporter alignment for moon2");
+                    self.outer.SetNextState(new EntityStates.LunarTeleporter.ActiveToIdle());
+                }
+            }
+            else if (self is EntityStates.LunarTeleporter.IdleToActive)
+            {
+                if (CheckBlocked(moon2) && self.fixedAge > EntityStates.LunarTeleporter.IdleToActive.duration)
+                {
+                    // Pretend to let the teleporter align and then unalign it.
+                    if (NetworkServer.active) ChatMessage.SendColored("Just not feeling it right now.", Color.blue);
+                    self.outer.SetNextState(new EntityStates.LunarTeleporter.ActiveToIdle());
+                }
+            }
+        }
+
+        /**
+         * Unalign the teleporter when Commencement is not unlocked.
+         */
+        [Obsolete]
+        private void Active_OnEnter(On.EntityStates.LunarTeleporter.Active.orig_OnEnter orig, EntityStates.LunarTeleporter.Active self)
+        {
+            Log.LogDebug("Active_OnEnter"); // XXX doesn't seem to be called
+            if (CheckBlocked(moon2))
+            {
+                ChatMessage.SendColored("Just not feeling it right now.", Color.blue);
+                self.outer.SetNextState(new EntityStates.LunarTeleporter.ActiveToIdle());
+                return;
+            }
+            orig(self);
+        }
+
+        /**
          * Swap the teleporter to use the next stage instead of go to Commencement if the environment is not unlocked.
          */
         private void SceneExitController_SetState(On.RoR2.SceneExitController.orig_SetState orig, SceneExitController self, SceneExitController.ExitState newState)
@@ -200,89 +246,30 @@ namespace Archipelago.RiskOfRain2.Handlers
                     Log.LogDebug("Blocking portal alignment for moon2.");
                     // then actually go to the next stage
                     self.useRunNextStageScene = true;
+
                     // TODO maybe make the teleporter completely unable to align with the moon for user friendliness
+                    // (there exists attempts of this in LunarTeleporterBaseState_FixedUpdate and Active_OnEnter
                 }
-                // XXX
-                //if (
-                //    // if the next scene is the arena...
-                //    (int)self.destinationScene.sceneDefIndex == arena &&
-                //    // and the arena should be blocked...
-                //    CheckBlocked(arena)
-                //)
-                //{
-                //    Log.LogDebug("Blocking entrance to arena.");
-                //    // then actually go to the next stage
-                //    self.useRunNextStageScene = true;
-                //    // TODO maybe there is a way to block interaction with the portal itself...
-                //}
-                //if (
-                //    // if the next scene is the voidstage...
-                //    (int)self.destinationScene.sceneDefIndex == voidstage &&
-                //    // and the voidstage should be blocked...
-                //    CheckBlocked(voidstage)
-                //)
-                //{
-                //    Log.LogDebug("Blocking entrance to voidstage.");
-                //    // then actually go to the next stage
-                //    self.useRunNextStageScene = true;
-                //    // TODO maybe there is a way to block the voidstage portal itself
-                //}
-                // not blocking voidraid:
-                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
-                // Since this currently seems like an edge case where the player would truely decide to do both
-                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
-                // Only the glass frog interaction in Commencement will be blocked.
-                // This also prevents the player from becoming stuck.
             }
             orig(self, newState);
         }
 
         /**
-         * Block interaction with the Void Fields and Void Locus portal if the environment is not unlocked.
-         */
-        [Obsolete]
-        private void GenericInteraction_RoR2_IInteractable_OnInteractionBegin(On.RoR2.GenericInteraction.orig_RoR2_IInteractable_OnInteractionBegin orig, GenericInteraction self, Interactor activator)
-        {
-            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_OnInteractionBegin: contextToken {self.contextToken}"); // XXX remove possibly noisy debug
-            switch (self.contextToken) {
-                case "PORTAL_ARENA_CONTEXT":
-                    if (CheckBlocked(arena))
-                    {
-                        ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
-                        return;
-                    }
-                    break;
-                case "PORTAL_VOID_CONTEXT":
-                    if (CheckBlocked(voidstage))
-                    {
-                        ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
-                        return;
-                    }
-                    break;
-                // not blocking voidraid:
-                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
-                // Since this currently seems like an edge case where the player would truely decide to do both
-                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
-                // Only the glass frog interaction in Commencement will be blocked.
-                // This also prevents the player from becoming stuck.
-
-                // Arguably the other portals could be handled here as well,
-                // however it seems more user friendly to just not spawn the portal at all rather
-                // than spawn the portal and make it unable to be interacted with.
-            }
-            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_OnInteractionBegin: pass through"); // XXX remove possilby noisy debug
-            orig(self, activator);
-        }
-
-        /**
          * Block interaction with the Void Fields portal if the environment is not unlocked.
          */
-        // TODO test with arena
-        // TODO test with voidstage
-        // TODO test without arena
-        // TODO test without voidstage
         private void Interactor_PerformInteraction(On.RoR2.Interactor.orig_PerformInteraction orig, Interactor self, GameObject interactableObject)
         {
+            // I settled on hooking this method because I tried all other alternatives I could think of first.
+            // I attempted using all of the following with little or no success:
+            // - PortalSpawner_AttemptSpawnPortalServer: failed to block voidstage from spawning on teleporter
+            // - PortalSpawner_Start: failed to block voidstage portal from spawning on teleporter
+            // - GenericInteraction_RoR2_IInteractable_GetInteractability: broke all interactables
+            // - GenericInteraction_RoR2_IInteractable_OnInteractionBegin: didn't seem to be called when using void portals
+
+            // Blocking the use of void portals here is preferred over SceneExitController_SetState.
+            // This is because it's more user friendly to let the user know they cannot travel to the void
+            //  rather than redirect them to the next stage without warning.
+
             if (NetworkServer.active && interactableObject)
             {
                 // TODO how much does this affect performance?
@@ -324,115 +311,6 @@ namespace Archipelago.RiskOfRain2.Handlers
                 }
             }
             orig(self, interactableObject);
-        }
-
-        /**
-         * Block interaction with the Void Fields portal if the environment is not unlocked.
-         */
-        [Obsolete]
-        private Interactability GenericInteraction_RoR2_IInteractable_GetInteractability(On.RoR2.GenericInteraction.orig_RoR2_IInteractable_GetInteractability orig, GenericInteraction self, Interactor activator)
-        {
-            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_GetInteractability: contextToken {self.contextToken}"); // XXX remove possibly noisy debug
-            switch (self.contextToken) {
-                case "PORTAL_ARENA_CONTEXT":
-                    if (CheckBlocked(arena))
-                    {
-                        ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
-                        return Interactability.ConditionsNotMet;
-                    }
-                    break;
-                case "PORTAL_VOID_CONTEXT":
-                    if (CheckBlocked(voidstage))
-                    {
-                        ChatMessage.SendColored("The void rejects you.", new Color(0x88, 0x02, 0xd6));
-                        return Interactability.ConditionsNotMet;
-                    }
-                    break;
-                // not blocking voidraid:
-                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
-                // Since this currently seems like an edge case where the player would truely decide to do both
-                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
-                // Only the glass frog interaction in Commencement will be blocked.
-                // This also prevents the player from becoming stuck.
-
-                // Arguably the other portals could be handled here as well,
-                // however it seems more user friendly to just not spawn the portal at all rather
-                // than spawn the portal and make it unable to be interacted with.
-            }
-            Log.LogDebug($"GenericInteraction_RoR2_IInteractable_GetInteractability: pass through"); // XXX remove possilby noisy debug
-            return orig(self, activator);
-        }
-
-        /**
-         * Block the spawning of the Void Locus portal if the environment is not unlocked.
-         */
-        [Obsolete]
-        private bool PortalSpawner_AttemptSpawnPortalServer(On.RoR2.PortalSpawner.orig_AttemptSpawnPortalServer orig, PortalSpawner self)
-        {
-            Log.LogDebug("PortalSpawner_AttemptSpawnPortalServer"); // XXX remove extra debug
-
-            if (CheckBlocked(voidstage))
-            {
-                // inspired by https://github.com/harbingerofme/DebugToolkit/blob/a23a5e1b3e6651d4684fb52ee29fae52d8c0b3c2/Code/DT-Commands/CurrentRun.cs#L83
-
-                // block voidstage
-                if (self.portalSpawnCard == LegacyResourcesAPI.Load<InteractableSpawnCard>("SpawnCards/InteractableSpawnCard/iscDeepVoidPortal"))
-                {
-                    Log.LogDebug("Blocking portal spawn for voidstage from PortalSpawner_AttemptSpawnPortalServer.");
-                    return false;
-                }
-
-                // not blocking voidraid:
-                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
-                // Since this currently seems like an edge case where the player would truely decide to do both
-                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
-                // Only the glass frog interaction in Commencement will be blocked.
-                // This also prevents the player from becoming stuck.
-
-                // cannot block arena:
-                // NOTE: It would be nice to block the portal to void fields in the same way.
-                // This however can't happen because the portal is already added to the scene
-                //  and so it would not spawn using this method.
-                // On top of that, the portal does not have a spawn card so it cannot be distinguished
-                //  even if this method was used to spawn it.
-            }
-            return orig(self);
-        }
-
-        /**
-         * Block the spawning of the Void Locus portal if the environment is not unlocked.
-         */
-        [Obsolete]
-        private void PortalSpawner_Start(On.RoR2.PortalSpawner.orig_Start orig, PortalSpawner self)
-        {
-            Log.LogDebug("PortalSpawner_Start"); // XXX remove extra debug
-
-            if (CheckBlocked(voidstage))
-            {
-                // inspired by https://github.com/harbingerofme/DebugToolkit/blob/a23a5e1b3e6651d4684fb52ee29fae52d8c0b3c2/Code/DT-Commands/CurrentRun.cs#L83
-
-                // block voidstage
-                if (self.portalSpawnCard == LegacyResourcesAPI.Load<InteractableSpawnCard>("SpawnCards/InteractableSpawnCard/iscDeepVoidPortal"))
-                {
-                    Log.LogDebug("Blocking portal spawn for voidstage from PortalSpawner_Start.");
-                    return;
-                }
-
-                // not blocking voidraid:
-                // NOTE: Planetarium has two entrances, one in Void Locus and one in Commencement
-                // Since this currently seems like an edge case where the player would truely decide to do both
-                //  if the player gets the Planetarium portal from Void Locus, they can travel there.
-                // Only the glass frog interaction in Commencement will be blocked.
-                // This also prevents the player from becoming stuck.
-
-                // cannot block arena:
-                // NOTE: It would be nice to block the portal to void fields in the same way.
-                // This however can't happen because the portal is already added to the scene
-                //  and so it would not spawn using this method.
-                // On top of that, the portal does not have a spawn card so it cannot be distinguished
-                //  even if this method was used to spawn it.
-            }
-            orig(self);
         }
 
         /**
