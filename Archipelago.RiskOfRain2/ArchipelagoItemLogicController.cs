@@ -144,7 +144,11 @@ namespace Archipelago.RiskOfRain2
 
         private void RoR2Application_Update(On.RoR2.RoR2Application.orig_Update orig, RoR2Application self)
         {
-            if (IsInGame && itemReceivedQueue.Any())
+            // A while loop should be used so that all items are handled before the run begins doing things.
+            // Most instances will not have more than one item in the queue, and even if there are more items,
+            //  the performance drop should be negligable.
+            // TODO precollecting environments should happen in Run_Start
+            while (IsInGame && itemReceivedQueue.Any())
             {
                 HandleReceivedItemQueueItem();
             }

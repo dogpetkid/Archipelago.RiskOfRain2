@@ -56,8 +56,6 @@ namespace Archipelago.RiskOfRain2.Handlers
             blocked_stages = new List<int>();
 
             BlockAll();
-            // TODO fix first stage unblock
-            // TODO change the teleporter behavior to choose the next stage after the teleporter is charging/charged
         }
 
         public void Hook()
@@ -71,8 +69,7 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.FrogController.Pet += FrogController_Pet;
             On.RoR2.Interactor.PerformInteraction += Interactor_PerformInteraction;
             On.RoR2.SceneExitController.SetState += SceneExitController_SetState;
-            //On.EntityStates.LunarTeleporter.Active.OnEnter += Active_OnEnter;
-            //On.EntityStates.LunarTeleporter.LunarTeleporterBaseState.FixedUpdate += LunarTeleporterBaseState_FixedUpdate;
+            On.EntityStates.LunarTeleporter.Active.OnEnter += Active_OnEnter;
         }
 
         public void UnHook()
@@ -86,8 +83,7 @@ namespace Archipelago.RiskOfRain2.Handlers
             On.RoR2.FrogController.Pet -= FrogController_Pet;
             On.RoR2.Interactor.PerformInteraction -= Interactor_PerformInteraction;
             On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
-            //On.EntityStates.LunarTeleporter.Active.OnEnter -= Active_OnEnter;
-            //On.EntityStates.LunarTeleporter.LunarTeleporterBaseState.FixedUpdate -= LunarTeleporterBaseState_FixedUpdate;
+            On.EntityStates.LunarTeleporter.Active.OnEnter -= Active_OnEnter;
         }
 
         public void BlockAll()
@@ -174,48 +170,13 @@ namespace Archipelago.RiskOfRain2.Handlers
         }
 
         /**
-         * Prevent the teleporter from being aligned while Commencement is not unlocked.
-         */
-        [Obsolete]
-        private void LunarTeleporterBaseState_FixedUpdate(On.EntityStates.LunarTeleporter.LunarTeleporterBaseState.orig_FixedUpdate orig, EntityStates.LunarTeleporter.LunarTeleporterBaseState self)
-        {
-            Log.LogDebug("LunarTeleporterBaseState_FixedUpdate"); // XXX doesn't seem to be called
-            orig(self);
-            // Let the original go first so that we can change make sure our state change is the last one done
-
-            // Block the teleporter alignment itself for user friendliness.
-
-            if (self is EntityStates.LunarTeleporter.Active)
-            {
-                if (CheckBlocked(moon2))
-                {
-                    // Make sure to bring the moon out of the aligned state that it spawns in.
-                    // This could be done in OnEnter but the Active and IdleToActive can be stuffed in the same hook.
-                    Log.LogDebug("Blocking initial teleporter alignment for moon2");
-                    self.outer.SetNextState(new EntityStates.LunarTeleporter.ActiveToIdle());
-                }
-            }
-            else if (self is EntityStates.LunarTeleporter.IdleToActive)
-            {
-                if (CheckBlocked(moon2) && self.fixedAge > EntityStates.LunarTeleporter.IdleToActive.duration)
-                {
-                    // Pretend to let the teleporter align and then unalign it.
-                    if (NetworkServer.active) ChatMessage.SendColored("Just not feeling it right now.", Color.blue);
-                    self.outer.SetNextState(new EntityStates.LunarTeleporter.ActiveToIdle());
-                }
-            }
-        }
-
-        /**
          * Unalign the teleporter when Commencement is not unlocked.
          */
-        [Obsolete]
         private void Active_OnEnter(On.EntityStates.LunarTeleporter.Active.orig_OnEnter orig, EntityStates.LunarTeleporter.Active self)
         {
-            Log.LogDebug("Active_OnEnter"); // XXX doesn't seem to be called
             if (CheckBlocked(moon2))
             {
-                ChatMessage.SendColored("Just not feeling it right now.", Color.blue);
+                ChatMessage.SendColored("Just not feeling it right now.", new Color(0x5d, 0xd5, 0xe2));
                 self.outer.SetNextState(new EntityStates.LunarTeleporter.ActiveToIdle());
                 return;
             }
@@ -223,33 +184,19 @@ namespace Archipelago.RiskOfRain2.Handlers
         }
 
         /**
-         * Swap the teleporter to use the next stage instead of go to Commencement if the environment is not unlocked.
+         * Force the SceneExitController to rereoll the scene before moving to the next scene.
+         * This is to help prevent going into the same environment on the next stage.
          */
         private void SceneExitController_SetState(On.RoR2.SceneExitController.orig_SetState orig, SceneExitController self, SceneExitController.ExitState newState)
         {
-            // This method can be used to block going to other environments,
-            //  however there are other methods ways that are more intuitive or friendly to the user.
+            // Suppose the player(s) enters a scene where they do not have a valid destination currently.
+            // They would be garunteed to be stuck in that level on the next stage.
+            // By forcefully repicking the next scene, the player(s) can go to a scene that was unblocked while in the current scene.
 
-            if (
-                // only attempt to switch anything if the exit state is finish, ie SetState will attempt to teleport
-                newState == SceneExitController.ExitState.Finished &&
-                // if there is no set destination, there is no need to block here
-                (bool)self.destinationScene)
+            if (SceneExitController.ExitState.Finished == newState && self.useRunNextStageScene)
             {
-                if (
-                    // if the next scene is the moon...
-                    (int)self.destinationScene.sceneDefIndex == moon2 &&
-                    // and the moon should be blocked...
-                    CheckBlocked(moon2)
-                )
-                {
-                    Log.LogDebug("Blocking portal alignment for moon2.");
-                    // then actually go to the next stage
-                    self.useRunNextStageScene = true;
-
-                    // TODO maybe make the teleporter completely unable to align with the moon for user friendliness
-                    // (there exists attempts of this in LunarTeleporterBaseState_FixedUpdate and Active_OnEnter
-                }
+                Run.instance.PickNextStageSceneFromCurrentSceneDestinations();
+                Log.LogDebug("SceneExitController_SetState forcefully reroll next stagescene");
             }
             orig(self, newState);
         }
