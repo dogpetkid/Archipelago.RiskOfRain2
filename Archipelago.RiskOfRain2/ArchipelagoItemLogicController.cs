@@ -205,25 +205,31 @@ namespace Archipelago.RiskOfRain2
 
             Log.LogDebug($"Handling item with itemid {itemIdRecieved} with name {itemNameReceived}");
 
-            switch (itemNameReceived)
+            switch (itemIdRecieved)
             {
-                case "Common Item":
+                // TODO move the magic numbers to variables
+                // "Common Item"
+                case 37002:
                     var common = Run.instance.availableTier1DropList.Choice();
                     GiveItemToPlayers(common);
                     break;
-                case "Uncommon Item":
+                // "Uncommon Item"
+                case 37003:
                     var uncommon = Run.instance.availableTier2DropList.Choice();
                     GiveItemToPlayers(uncommon);
                     break;
-                case "Legendary Item":
+                // "Legendary Item"
+                case 37004:
                     var legendary = Run.instance.availableTier3DropList.Choice();
                     GiveItemToPlayers(legendary);
                     break;
-                case "Boss Item":
+                // "Boss Item"
+                case 37005:
                     var boss = Run.instance.availableBossDropList.Choice();
                     GiveItemToPlayers(boss);
                     break;
-                case "Lunar Item":
+                // "Lunar Item"
+                case 37006:
                     var lunar = Run.instance.availableLunarCombinedDropList.Choice();
                     var pickupDef = PickupCatalog.GetPickupDef(lunar);
                     if (pickupDef.itemIndex != ItemIndex.None)
@@ -235,23 +241,29 @@ namespace Archipelago.RiskOfRain2
                         GiveEquipmentToPlayers(lunar);
                     }
                     break;
-                case "Equipment":
+                // "Equipment"
+                case 37007:
                     var equipment = Run.instance.availableEquipmentDropList.Choice();
                     GiveEquipmentToPlayers(equipment);
                     break;
-                case "Item Scrap, White":
+                // "Item Scrap, White"
+                case 37008:
                     GiveItemToPlayers(PickupCatalog.FindPickupIndex(RoR2Content.Items.ScrapWhite.itemIndex));
                     break;
-                case "Item Scrap, Green":
+                // "Item Scrap, Green"
+                case 37009:
                     GiveItemToPlayers(PickupCatalog.FindPickupIndex(RoR2Content.Items.ScrapGreen.itemIndex));
                     break;
-                case "Item Scrap, Red":
+                // "Item Scrap, Red"
+                case 37010:
                     GiveItemToPlayers(PickupCatalog.FindPickupIndex(RoR2Content.Items.ScrapRed.itemIndex));
                     break;
-                case "Item Scrap, Yellow":
+                // "Item Scrap, Yellow"
+                case 37011:
                     GiveItemToPlayers(PickupCatalog.FindPickupIndex(RoR2Content.Items.ScrapYellow.itemIndex));
                     break;
-                case "Dio's Best Friend":
+                // "Dio's Best Friend"
+                case 37001:
                     GiveItemToPlayers(PickupCatalog.FindPickupIndex(RoR2Content.Items.ExtraLife.itemIndex));
                     break;
             }
@@ -357,7 +369,9 @@ namespace Archipelago.RiskOfRain2
                 }
 
                 var itemSendName = $"ItemPickup{CurrentChecks}";
-                var itemLocationId = session.Locations.GetLocationIdFromName("Risk of Rain 2", itemSendName);
+                //var itemLocationId = session.Locations.GetLocationIdFromName("Risk of Rain 2", itemSendName);
+                // TODO come back and move magic number to variable
+                var itemLocationId = 38000 + CurrentChecks;
                 Log.LogDebug($"Sent out location {itemSendName} (id: {itemLocationId})");
 
                 var packet = new LocationChecksPacket();
