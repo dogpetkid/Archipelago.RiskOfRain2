@@ -104,6 +104,13 @@ namespace Archipelago.RiskOfRain2
 
             HookGame();
             new ArchipelagoStartMessage().Send(NetworkDestination.Clients);
+
+            // TODO Precollecting needs to happen earlier to be actually effective...
+            // Connect() is called in is within Run.onRunStartGlobal().
+            // Run.Start() calls onRunStartGlobal().
+            // Precolect needs to happen before Start() since that is when the first stage's environment is picked.
+            // Actually doing this would take a networking rewrite; there is no effective workaround.
+            ItemLogic.Precollect();
         }
 
         public void Dispose()

@@ -34,6 +34,9 @@ namespace Archipelago.RiskOfRain2
         private bool finishedAllChecks = false;
         private ArchipelagoSession session;
         private Queue<KeyValuePair<int, string>> itemReceivedQueue = new Queue<KeyValuePair<int, string>>();
+        private Queue<KeyValuePair<int, string>> environmentReceivedQueue = new Queue<KeyValuePair<int, string>>();
+        private const int environmentRangeLower = 37700;
+        private const int environmentRangeUpper = 37999;
         private PickupIndex[] skippedItems;
 
         private GameObject smokescreenPrefab;
@@ -126,8 +129,19 @@ namespace Archipelago.RiskOfRain2
             // convert the itemId to a name here instead of in the main loop
             // this prevents a call to the session in the RoR2Application_Update
             var itemName = session.Items.GetItemName(itemId);
-            // keep track of the item id as well as since the name cannot be converted back to an id
-            itemReceivedQueue.Enqueue(new KeyValuePair<int, string>(itemId, itemName));
+            // We will keep track of the item id as well as since the name cannot be converted back to an id.
+
+            // Separate the environments and items so that the environments can be precollected
+            //  when the run starts.
+            if (environmentRangeLower <= itemId && itemId <= environmentRangeUpper)
+            {
+                environmentReceivedQueue.Enqueue(new KeyValuePair<int, string>(itemId, itemName));
+            }
+            else
+            {
+                itemReceivedQueue.Enqueue(new KeyValuePair<int, string>(itemId, itemName));
+            }
+
         }
 
         public void Dispose()
@@ -142,18 +156,44 @@ namespace Archipelago.RiskOfRain2
             }
         }
 
+        /**
+         * At the start of a run, we need to precollect all environments before environments are picked for stages.
+         */
+        public void Precollect()
+        {
+            while (environmentReceivedQueue.Any())
+            {
+                Log.LogDebug("Precollecting environment...");
+                HandleReceivedEnvironmentQueueItem();
+            }
+        }
+
         private void RoR2Application_Update(On.RoR2.RoR2Application.orig_Update orig, RoR2Application self)
         {
-            // A while loop should be used so that all items are handled before the run begins doing things.
-            // Most instances will not have more than one item in the queue, and even if there are more items,
-            //  the performance drop should be negligable.
-            // TODO precollecting environments should happen in Run_Start
-            while (IsInGame && itemReceivedQueue.Any())
+            if (IsInGame)
             {
-                HandleReceivedItemQueueItem();
+                if (itemReceivedQueue.Any())
+                {
+                    HandleReceivedItemQueueItem();
+                }
+                if (environmentReceivedQueue.Any())
+                {
+                    HandleReceivedEnvironmentQueueItem();
+                }
             }
 
             orig(self);
+        }
+
+        private void HandleReceivedEnvironmentQueueItem()
+        {
+            KeyValuePair<int, string> itemReceived = environmentReceivedQueue.Dequeue();
+
+            int itemIdRecieved = itemReceived.Key;
+            string itemNameReceived = itemReceived.Value;
+
+            Log.LogDebug($"Handling environment with itemid {itemIdRecieved} with name {itemNameReceived}");
+            Stageblockerhandler.UnBlock(itemIdRecieved - environmentRangeLower);
         }
 
         private void HandleReceivedItemQueueItem()
@@ -163,16 +203,7 @@ namespace Archipelago.RiskOfRain2
             int itemIdRecieved = itemReceived.Key;
             string itemNameReceived = itemReceived.Value;
 
-            Log.LogDebug($"Handling itemid {itemIdRecieved} with name {itemNameReceived}");
-
-            // check if the item is an environment based off of the itemId
-            if (37700 <= itemIdRecieved && itemIdRecieved < 38000)
-            {
-                Log.LogDebug("Handling as environment.");
-                Stageblockerhandler.UnBlock(itemIdRecieved - 37700);
-                return;
-            }
-            Log.LogDebug("Handling as drop item.");
+            Log.LogDebug($"Handling item with itemid {itemIdRecieved} with name {itemNameReceived}");
 
             switch (itemNameReceived)
             {
