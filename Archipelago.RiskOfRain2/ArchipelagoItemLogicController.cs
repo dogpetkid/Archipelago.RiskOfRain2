@@ -52,6 +52,7 @@ namespace Archipelago.RiskOfRain2
         public ArchipelagoItemLogicController(ArchipelagoSession session)
         {
             this.session = session;
+            // XXX I need to make sure the LocationHandler is truely handling the stages instead of this all-in-one class
             On.RoR2.PickupDropletController.CreatePickupDroplet_PickupIndex_Vector3_Vector3 += PickupDropletController_CreatePickupDroplet;
             On.RoR2.RoR2Application.Update += RoR2Application_Update;
             session.Socket.PacketReceived += Session_PacketReceived;

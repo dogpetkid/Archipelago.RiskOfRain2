@@ -45,6 +45,7 @@ namespace Archipelago.RiskOfRain2.Handlers
         public const int goldshores = 14;       // Hidden Realm: Gilded Coast
         public const int limbo = 27;            // Hidden Realm: A Moment, Whole
         public const int mysteryspace = 33;     // Hidden Realm: A Moment, Fractured
+        // TODO these should probably go somewhere else to better keep track of them since they are used in several places
 
 
         // A list of stages that should be blocked because they are locked by archipelago
@@ -421,6 +422,7 @@ namespace Archipelago.RiskOfRain2.Handlers
 
             return orig(self, scenedef);
         }
+        // TODO perhaps if no stages can be picked as destinations, an alternative environment for the given stage should be used (so that the player isn't stuck on a single stage)
 
     }
 }
