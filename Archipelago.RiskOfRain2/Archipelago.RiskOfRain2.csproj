@@ -34,4 +34,8 @@
     </Reference>
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy /Y &quot;$(TargetPath)&quot; &quot;C:\Users\joshua\AppData\Roaming\r2modmanPlus-local\RiskOfRain2\profiles\archdev\BepInEx\plugins\ArchipelagoMW-Archipelago&quot;" />
+  </Target>
+
 </Project>
