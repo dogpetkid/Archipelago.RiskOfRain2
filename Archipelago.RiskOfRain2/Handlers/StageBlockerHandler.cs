@@ -56,7 +56,7 @@ namespace Archipelago.RiskOfRain2.Handlers
         {
             blocked_stages = new List<int>();
 
-            BlockAll();
+            // blocking stages should be down by the owner of this object
         }
 
         public void Hook()
