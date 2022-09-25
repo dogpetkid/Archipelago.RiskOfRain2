@@ -187,10 +187,6 @@ namespace Archipelago.RiskOfRain2
                 new IntConfigField("Archipelago Server Port", () => apServerPort, (newValue) => apServerPort = newValue),
                 new BooleanConfigField("Enable Archipelago?", () => willConnectToAP, (newValue) => willConnectToAP = newValue)
             });
-            configEntry.SectionFields.Add("DeathLink Settings", new List<IConfigField>
-            {
-                new BooleanConfigField("Enable DeathLink?", () => enableDeathlink, (newValue) => enableDeathlink = newValue),
-            });
             InLobbyConfig.ModConfigCatalog.Add(configEntry);
         }
     }

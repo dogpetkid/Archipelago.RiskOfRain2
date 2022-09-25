@@ -54,6 +54,7 @@ namespace Archipelago.RiskOfRain2.Handlers
 
         public StageBlockerHandler()
         {
+            Log.LogDebug($"StageBlocker handler constructor.");
             blocked_stages = new List<int>();
 
             // blocking stages should be down by the owner of this object
@@ -91,6 +92,7 @@ namespace Archipelago.RiskOfRain2.Handlers
         {
             // TODO add support for only blocking environments known to be in the pool
             // (eg. simulacrum should not be blocked if not in the pool, otherwise it would be permanently locked)
+            Log.LogDebug($"StageBlocker blocking all...");
 
             // scenes from https://risk-of-thunder.github.io/R2Wiki/Mod-Creation/Developer-Reference/Scene-Names/
             // block all main scenes

@@ -193,7 +193,7 @@ namespace Archipelago.RiskOfRain2
             string itemNameReceived = itemReceived.Value;
 
             Log.LogDebug($"Handling environment with itemid {itemIdRecieved} with name {itemNameReceived}");
-            Stageblockerhandler.UnBlock(itemIdRecieved - environmentRangeLower);
+            Stageblockerhandler?.UnBlock(itemIdRecieved - environmentRangeLower);
         }
 
         private void HandleReceivedItemQueueItem()
