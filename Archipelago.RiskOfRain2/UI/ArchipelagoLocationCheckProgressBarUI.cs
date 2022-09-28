@@ -26,6 +26,7 @@ namespace Archipelago.RiskOfRain2.UI
             On.RoR2.UI.HUD.Awake += HUD_Awake;
         }
 
+        // TODO make the shrines and chests make progress on this bar
         private void SyncLocationCheckProgress_LocationSynced(int count, int step)
         {
             ItemPickupStep = step;

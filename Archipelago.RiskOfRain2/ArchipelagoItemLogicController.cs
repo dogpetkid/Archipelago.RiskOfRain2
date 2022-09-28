@@ -52,6 +52,7 @@ namespace Archipelago.RiskOfRain2
         public ArchipelagoItemLogicController(ArchipelagoSession session)
         {
             this.session = session;
+            // TODO make a YAML option to toggle on the classic/legacy mode of handling locations
             // On.RoR2.PickupDropletController.CreatePickupDroplet_PickupIndex_Vector3_Vector3 += PickupDropletController_CreatePickupDroplet;
             On.RoR2.RoR2Application.Update += RoR2Application_Update;
             session.Socket.PacketReceived += Session_PacketReceived;
