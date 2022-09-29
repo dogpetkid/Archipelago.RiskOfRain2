@@ -37,13 +37,9 @@ namespace Archipelago.RiskOfRain2.Handlers
         public struct LocationInformationTemplate
         {
             public int chest_count { get; set; }
-            // XXX use this
             public int shrine_count { get; set; }
-            // XXX use this
             public int scavenger_count { get; set; }
-            // XXX use this
             public int radio_scanner_count { get; set; }
-            // XXX use this
             public int newt_alter_count { get; set; }
         }
 
@@ -61,17 +57,20 @@ namespace Archipelago.RiskOfRain2.Handlers
             return locationtemplate;
         }
 
-        // XXX write a comment summary about this
+        /// <summary>
+        /// These values are sourced from the RoR2 Archipelago world code.
+        /// These are used to determine the id values of locations.
+        /// </summary>
         private readonly struct ArchipelagoLocationOffsets
         {
             // these values come from worlds/ror2/Locations.py in Archipelago
             public const int ror2_locations_start_orderedstage = 38000 + 250;
             public const int offset_ChestsPerEnvironment = 0;
-            public const int offset_ShrinesPerEnvironment = 20;
-            public const int offset_ScavengersPerEnvironment = 40;
-            public const int offset_ScannersPerEnvironment = 41;
-            public const int offset_AltarsPerEnvironment = 42;
-            public const int allocation = 44;
+            public const int offset_ShrinesPerEnvironment = 0 + 20;
+            public const int offset_ScavengersPerEnvironment = 0 + 20 + 20;
+            public const int offset_ScannersPerEnvironment = 0 + 20 + 20 + 1;
+            public const int offset_AltarsPerEnvironment = 0 + 20 + 20 + 1 + 1;
+            public const int allocation = 0 + 20 + 20 + 1 + 1 + 2;
         }
 
         private ArchipelagoSession session;
@@ -163,14 +162,30 @@ namespace Archipelago.RiskOfRain2.Handlers
 
         public void Hook()
         {
+            // Chests
             On.RoR2.ChestBehavior.ItemDrop += ChestBehavior_ItemDrop;
             On.RoR2.PickupDropletController.CreatePickupDroplet_PickupIndex_Vector3_Vector3 += PickupDropletController_CreatePickupDroplet;
+            // Shrines
+            // Scavengers
+            // Radio Scanners
+            On.RoR2.SceneDirector.PopulateScene += SceneDirector_PopulateScene;
+            On.RoR2.RadiotowerTerminal.GrantUnlock += RadiotowerTerminal_GrantUnlock;
+            // Newt Altars
+            On.RoR2.PortalStatueBehavior.GrantPortalEntry += PortalStatueBehavior_GrantPortalEntry;
         }
 
         public void UnHook()
         {
+            // Chests
             On.RoR2.ChestBehavior.ItemDrop -= ChestBehavior_ItemDrop;
             On.RoR2.PickupDropletController.CreatePickupDroplet_PickupIndex_Vector3_Vector3 -= PickupDropletController_CreatePickupDroplet;
+            // Shrines
+            // Scavengers
+            // Radio Scanners
+            On.RoR2.SceneDirector.PopulateScene -= SceneDirector_PopulateScene;
+            On.RoR2.RadiotowerTerminal.GrantUnlock -= RadiotowerTerminal_GrantUnlock;
+            // Newt Altars
+            On.RoR2.PortalStatueBehavior.GrantPortalEntry -= PortalStatueBehavior_GrantPortalEntry;
         }
 
         private uint chestitemsPickedUp = 0; // is used to count the number of items
@@ -249,6 +264,139 @@ namespace Archipelago.RiskOfRain2.Handlers
             }
             orig(pickupIndex, position, velocity);
         }
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Shrine like objects
+
+        // All shrines behave differently and there is no inheritance to a common shrine object
+        // Therefore all shrine types will have to be handled differently.
+
+        // XXX Gold
+        // XXX Blood
+        // XXX Chance
+        // XXX Combat
+        // XXX Order
+        // XXX Mountain
+        // XXX Woods
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Scavenger
+
+        // Scavengers will be counted by the number of bags opened.
+
+        // XXX implement scavbackpak uses ChestBehavior_ItemDrop
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Radio scanner
+
+        // Radio scanners will need to be forcefully spawned even if the player has purchased them
+        //  otherwise the check would be impossible to complete.
+
+        private void SceneDirector_PopulateScene(On.RoR2.SceneDirector.orig_PopulateScene orig, SceneDirector self)
+        {
+            Log.LogDebug("SceneDirector_PopulateScene"); // XXX
+            orig(self); // let the director do it's own thing first as to not get in the way
+
+            int currentenvironment = (int)SceneCatalog.mostRecentSceneDef.sceneDefIndex;
+            LocationInformationTemplate locationsinenvironment = currentlocations[currentenvironment];
+
+            if (locationsinenvironment.radio_scanner_count > 0)
+            // we always want to always spawn a radio scanner if it is a location
+            {
+                Log.LogDebug("attempt to spawn scanner"); // XXX
+
+                // the format for spawning is stolen directly from how rusty/lock boxes are spawned
+                Xoroshiro128Plus xoroshiro128PlusRadioScanner = new Xoroshiro128Plus(self.rng.nextUlong);
+                DirectorCore.instance.TrySpawnObject(new DirectorSpawnRequest(LegacyResourcesAPI.Load<SpawnCard>("SpawnCards/InteractableSpawnCard/iscRadarTower"), new DirectorPlacementRule
+                {
+                    placementMode = DirectorPlacementRule.PlacementMode.Random
+                }, xoroshiro128PlusRadioScanner));
+            }
+        }
+
+        private void RadiotowerTerminal_GrantUnlock(On.RoR2.RadiotowerTerminal.orig_GrantUnlock orig, RadiotowerTerminal self, Interactor interactor)
+        {
+            Log.LogDebug("RadiotowerTerminal_GrantUnlock"); // XXX
+            int currentenvironment = (int)SceneCatalog.mostRecentSceneDef.sceneDefIndex;
+            LocationInformationTemplate locationsinenvironment = currentlocations[currentenvironment];
+
+            if (locationsinenvironment.radio_scanner_count <= 0)
+            {
+                orig(self, interactor);
+                return;
+            }
+
+           int environment_start_id = currentenvironment*ArchipelagoLocationOffsets.allocation + ArchipelagoLocationOffsets.ror2_locations_start_orderedstage;
+           int radio_number = originallocationstemplate.radio_scanner_count - locationsinenvironment.radio_scanner_count;
+           locationsinenvironment.radio_scanner_count--;
+
+           LocationChecksPacket packet = new LocationChecksPacket();
+           packet.Locations = new List<long> { radio_number + ArchipelagoLocationOffsets.offset_ScannersPerEnvironment + environment_start_id }.ToArray();
+           Log.LogDebug($"planning to send location {packet.Locations[0]}"); // XXX
+           // why synchronous? that's how Ijwu had done it before, unsure of the specific reasoning:
+           // https://github.com/Ijwu/Archipelago.RiskOfRain2/blob/4318f37e7aa3fea258830de0d08a41014b19228b/Archipelago.RiskOfRain2/ArchipelagoItemLogicController.cs#L311
+           session.Socket.SendPacket(packet);
+           Log.LogDebug($"environment {currentenvironment} now has {locationsinenvironment.radio_scanner_count} remaining"); // XXX
+
+           currentlocations[currentenvironment] = locationsinenvironment; // save the changes to the locations
+
+            // still play the effect for the scanner and lock it from being used again
+            EffectManager.SpawnEffect(self.unlockEffect, new EffectData
+            {
+                origin = self.transform.position
+            }, transmit: true);
+            self.SetHasBeenPurchased(newHasBeenPurchased: true);
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Newt Altars
+
+        private void PortalStatueBehavior_GrantPortalEntry(On.RoR2.PortalStatueBehavior.orig_GrantPortalEntry orig, PortalStatueBehavior self)
+        {
+            Log.LogDebug("PortalStatueBehavior_GrantPortalEntry"); // XXX
+
+            if (self.portalType == PortalStatueBehavior.PortalType.Shop)
+            {
+                Log.LogDebug("altar used ie blue portal"); // XXX
+
+                int currentenvironment = (int)SceneCatalog.mostRecentSceneDef.sceneDefIndex;
+                LocationInformationTemplate locationsinenvironment = currentlocations[currentenvironment];
+
+                if (locationsinenvironment.newt_alter_count <= 0)
+                {
+                    orig(self); // if there are no checks to be sent, nothing needs to be done
+                    return;
+                }
+
+                int environment_start_id = currentenvironment*ArchipelagoLocationOffsets.allocation + ArchipelagoLocationOffsets.ror2_locations_start_orderedstage;
+                int altar_number = originallocationstemplate.newt_alter_count - locationsinenvironment.newt_alter_count;
+                locationsinenvironment.newt_alter_count--;
+
+                LocationChecksPacket packet = new LocationChecksPacket();
+                packet.Locations = new List<long> { altar_number + ArchipelagoLocationOffsets.offset_AltarsPerEnvironment + environment_start_id }.ToArray();
+                Log.LogDebug($"planning to send location {packet.Locations[0]}"); // XXX
+                // why synchronous? that's how Ijwu had done it before, unsure of the specific reasoning:
+                // https://github.com/Ijwu/Archipelago.RiskOfRain2/blob/4318f37e7aa3fea258830de0d08a41014b19228b/Archipelago.RiskOfRain2/ArchipelagoItemLogicController.cs#L311
+                session.Socket.SendPacket(packet);
+                Log.LogDebug($"environment {currentenvironment} now has {locationsinenvironment.newt_alter_count} remaining"); // XXX
+
+                currentlocations[currentenvironment] = locationsinenvironment; // save the changes to the locations
+
+                // TODO do I want to block the other altars from being used? ie only one altar use per stage
+
+                return; // don't run the original as we do not want to spawn the portal effect when we are going to stop the portal from spawning
+            }
+
+            orig(self);
+        }
+
         ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     }
