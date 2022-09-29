@@ -31,7 +31,7 @@ namespace Archipelago.RiskOfRain2
         private ArchipelagoClient AP;
         private bool isInLobbyConfigLoaded = false;
         private string apServerUri = "localhost";
-        private int apServerPort = 53934;
+        private int apServerPort = 64523;
         private bool willConnectToAP = true;
         private bool isPlayingAP = false;
         private string apSlotName = "Dogpetkid";
