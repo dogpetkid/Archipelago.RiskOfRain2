@@ -234,6 +234,11 @@ namespace Archipelago.RiskOfRain2.Handlers
             // Chests
             On.RoR2.ChestBehavior.ItemDrop += ChestBehavior_ItemDrop_Chest;
             On.RoR2.PickupDropletController.CreatePickupDroplet_PickupIndex_Vector3_Vector3 += PickupDropletController_CreatePickupDroplet_Chest;
+            On.RoR2.MultiShopController.OnPurchase += MultiShopController_OnPurchase; // XXX
+            On.RoR2.ShopTerminalBehavior.DropPickup += ShopTerminalBehavior_DropPickup; // XXX
+            On.RoR2.ShopTerminalBehavior.SetNoPickup += ShopTerminalBehavior_SetNoPickup; // XXX
+            On.RoR2.ShopTerminalBehavior.SetHidden += ShopTerminalBehavior_SetHidden; // XXX
+            On.RoR2.PurchaseInteraction.OnInteractionBegin += PurchaseInteraction_OnInteractionBegin; // XXX
             // Shrines
             On.RoR2.PortalStatueBehavior.GrantPortalEntry += PortalStatueBehavior_GrantPortalEntry_Gold;
             On.RoR2.ShrineBloodBehavior.AddShrineStack += ShrineBloodBehavior_AddShrineStack;
@@ -263,6 +268,11 @@ namespace Archipelago.RiskOfRain2.Handlers
             // Chests
             On.RoR2.ChestBehavior.ItemDrop -= ChestBehavior_ItemDrop_Chest;
             On.RoR2.PickupDropletController.CreatePickupDroplet_PickupIndex_Vector3_Vector3 -= PickupDropletController_CreatePickupDroplet_Chest;
+            On.RoR2.MultiShopController.OnPurchase -= MultiShopController_OnPurchase; // XXX
+            On.RoR2.ShopTerminalBehavior.DropPickup -= ShopTerminalBehavior_DropPickup; // XXX
+            On.RoR2.ShopTerminalBehavior.SetNoPickup -= ShopTerminalBehavior_SetNoPickup; // XXX
+            On.RoR2.ShopTerminalBehavior.SetHidden -= ShopTerminalBehavior_SetHidden; // XXX
+            On.RoR2.PurchaseInteraction.OnInteractionBegin -= PurchaseInteraction_OnInteractionBegin; // XXX
             // Shrines
             On.RoR2.PortalStatueBehavior.GrantPortalEntry -= PortalStatueBehavior_GrantPortalEntry_Gold;
             On.RoR2.ShrineBloodBehavior.AddShrineStack -= ShrineBloodBehavior_AddShrineStack;
@@ -591,13 +601,94 @@ namespace Archipelago.RiskOfRain2.Handlers
 
         private void PickupDropletController_CreatePickupDroplet_Chest(On.RoR2.PickupDropletController.orig_CreatePickupDroplet_PickupIndex_Vector3_Vector3 orig, RoR2.PickupIndex pickupIndex, UnityEngine.Vector3 position, UnityEngine.Vector3 velocity)
         {
+            Log.LogDebug("PickupDropletController_CreatePickupDroplet_Chest START"); // XXX
+            Log.LogDebug($"chestblockitem {chestblockitem}"); // XXX
             // check if the item being dropped is being asked to not drop
             if (chestblockitem)
             {
                 Log.LogDebug($"chest item {pickupIndex} was used to satisfy a location and thus is consumed");
                 return;
             }
+            Log.LogDebug("PickupDropletController_CreatePickupDroplet_Chest ORIGINAL"); // XXX
             orig(pickupIndex, position, velocity);
+            Log.LogDebug("PickupDropletController_CreatePickupDroplet_Chest END"); // XXX
+        }
+
+        private void MultiShopController_OnPurchase(On.RoR2.MultiShopController.orig_OnPurchase orig, MultiShopController self, Interactor interactor, PurchaseInteraction purchaseInteraction)
+        {
+            // XXX NOTE: ultimately the reason why this doesn't work is the call order does not allow for the same method of blocking the pickup as normal chests
+            //[Debug: Archipelago] PurchaseInteraction_OnInteractionBegin START
+            //[Debug  :Archipelago] ShopTerminalBehavior_DropPickup START
+            //[Debug  :Archipelago] PickupDropletController_CreatePickupDroplet_Chest START
+            //[Debug  :Archipelago] chestblockitem False
+            //[Debug  :Archipelago] PickupDropletController_CreatePickupDroplet_Chest ORIGINAL
+            //[Debug  :Archipelago] PickupDropletController_CreatePickupDroplet_Chest END
+            //[Debug  :Archipelago] ShopTerminalBehavior_DropPickup END
+            //[Debug  :Archipelago] MultiShopController_OnPurchase START
+            //[Debug  :Archipelago] chestblockitem False
+            //[Debug  :Archipelago] chest counted as towards the locations
+            //[Debug  :Archipelago] chestblockitem False
+            //[Debug  :Archipelago] MultiShopController_OnPurchase ORIGINAL
+            //[Debug  :Archipelago] ShopTerminalBehavior_SetNoPickup START
+            //[Debug  :Archipelago] ShopTerminalBehavior_SetNoPickup END
+            //[Debug  :Archipelago] ShopTerminalBehavior_SetNoPickup START
+            //[Debug  :Archipelago] ShopTerminalBehavior_SetNoPickup END
+            //[Debug  :Archipelago] ShopTerminalBehavior_SetNoPickup START
+            //[Debug  :Archipelago] ShopTerminalBehavior_SetNoPickup END
+            //[Debug  :Archipelago] ShopTerminalBehavior_SetNoPickup START
+            //[Debug  :Archipelago] ShopTerminalBehavior_SetNoPickup END
+            //[Debug  :Archipelago] MultiShopController_OnPurchase END
+            //[Debug  :Archipelago] chestblockitem False
+            //[Debug  :Archipelago] PurchaseInteraction_OnInteractionBegin END
+            // This shows PickupDropletController_CreatePickupDroplet_Chest happens before MultiShopController_OnPurchase
+
+            // A possible way to go around this is to wrestle the call order into what we want
+            // - set blockinitial to true within (PurchaseInteraction_OnInteractionBegin)
+            // - see blockinitial is set to true when creating the first item naturally, and block said item (PickupDropletController_CreatePickupDroplet_Chest)
+            // - if the item would naturally have spawned, set intendspawn to true
+            // - see if the multishop is the one that did the purchase (MultiShopController_OnPurchase)
+            // - after the the purchase, reattempt to drop the item if intendspawn and not from multishop (PurchaseInteraction_OnInteractionBegin)
+
+            Log.LogDebug("MultiShopController_OnPurchase START"); // XXX
+            Log.LogDebug($"chestblockitem {chestblockitem}"); // XXX
+            // treat the multishop like a chest
+            chestblockitem = chestOpened();
+            Log.LogDebug($"chestblockitem {chestblockitem}"); // XXX
+
+            Log.LogDebug("MultiShopController_OnPurchase ORIGINAL"); // XXX
+            orig(self, interactor, purchaseInteraction); // the original will end up calling PickupDropletController_CreatePickupDroplet as well as other things
+            Log.LogDebug("MultiShopController_OnPurchase END"); // XXX
+            chestblockitem = false;
+            Log.LogDebug($"chestblockitem {chestblockitem}"); // XXX
+        }
+
+        private void PurchaseInteraction_OnInteractionBegin(On.RoR2.PurchaseInteraction.orig_OnInteractionBegin orig, PurchaseInteraction self, Interactor activator) // XXX
+        {
+            Log.LogDebug("PurchaseInteraction_OnInteractionBegin START"); // XXX
+            orig(self, activator);
+            Log.LogDebug("PurchaseInteraction_OnInteractionBegin END"); // XXX
+        }
+
+        private void ShopTerminalBehavior_SetHidden(On.RoR2.ShopTerminalBehavior.orig_SetHidden orig, ShopTerminalBehavior self, bool newHidden) // XXX
+        {
+            Log.LogDebug("ShopTerminalBehavior_SetHidden START"); // XXX
+            Log.LogDebug($"newHidden {newHidden}"); // XXX
+            orig(self, newHidden);
+            Log.LogDebug("ShopTerminalBehavior_SetHidden END"); // XXX
+        }
+
+        private void ShopTerminalBehavior_SetNoPickup(On.RoR2.ShopTerminalBehavior.orig_SetNoPickup orig, ShopTerminalBehavior self) // XXX
+        {
+            Log.LogDebug("ShopTerminalBehavior_SetNoPickup START"); // XXX
+            orig(self);
+            Log.LogDebug("ShopTerminalBehavior_SetNoPickup END"); // XXX
+        }
+
+        private void ShopTerminalBehavior_DropPickup(On.RoR2.ShopTerminalBehavior.orig_DropPickup orig, ShopTerminalBehavior self) // XXX
+        {
+            Log.LogDebug("ShopTerminalBehavior_DropPickup START"); // XXX
+            orig(self);
+            Log.LogDebug("ShopTerminalBehavior_DropPickup END"); // XXX
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
