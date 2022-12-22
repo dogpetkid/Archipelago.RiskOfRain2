@@ -30,11 +30,11 @@ namespace Archipelago.RiskOfRain2
 
         private ArchipelagoClient AP;
         //private bool isInLobbyConfigLoaded = false;
-        internal static string apServerUri = "archipelago.gg";
-        internal static int apServerPort = 38281;
+        internal static string apServerUri = "localhost";
+        internal static int apServerPort = 38284;
         private bool willConnectToAP = true;
         private bool isPlayingAP = false;
-        internal static string apSlotName = "";
+        internal static string apSlotName = "Dogpetkid";
         //private string apSlotName;
         internal static string apPassword;
 
